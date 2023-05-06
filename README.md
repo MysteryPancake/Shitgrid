@@ -16,7 +16,7 @@ These folders are used by the Blender addon as described below.
 The Blender addon is responsible for managing asset versions.
 Assets get published into the folders created by the website.
 
-## Environment Variables:
+## Environment Variables
 
 ### Website
 
