@@ -32,7 +32,7 @@ class AddAsset extends React.Component {
 				assetType: this.state.assetType,
 				assetDesc: this.state.assetDesc
 			})
-		}).then(this.hideModal);
+		}).then(() => window.location.reload());
 	}
 
 	render() {

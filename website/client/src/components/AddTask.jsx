@@ -30,7 +30,7 @@ class AddTask extends React.Component {
 				taskName: this.state.taskName,
 				taskDesc: this.state.taskDesc
 			})
-		}).then(this.hideModal);
+		}).then(() => window.location.reload());
 	}
 
 	render() {

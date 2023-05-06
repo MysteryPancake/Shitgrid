@@ -18,13 +18,13 @@ class Assets extends React.Component {
 
 	render() {
 		return (
-			<>
-				<div>
-					<h2 className="d-inline-block m-3">Assets</h2>
-					<AddAsset className="float-end m-3">+ Add Asset</AddAsset>
+			<div className="m-3">
+				<div className="mb-2">
+					<h2 className="d-inline-block">Assets</h2>
+					<AddAsset className="float-end">+ Add Asset</AddAsset>
 				</div>
-				<Table bordered hover>
-					<thead>
+				<Table bordered>
+					<thead style={{ backgroundColor: "#EEE" }}>
 						<tr>
 							<th>Thumbnail</th>
 							<th>Asset Name</th>
@@ -39,15 +39,15 @@ class Assets extends React.Component {
 								return <tr key={i}>
 									<td>{asset.thumbnail}</td>
 									<td>{asset.assetName}</td>
-									<td>{asset.assetDesc}</td>
 									<td>{asset.assetType}</td>
+									<td>{asset.assetDesc}</td>
 									<td>{asset.status}</td>
 								</tr>
 							})
 						}
 					</tbody>
 				</Table>
-			</>
+			</div>
 		);
 	}
 }

@@ -18,13 +18,13 @@ class Tasks extends React.Component {
 
 	render() {
 		return (
-			<>
-				<div>
-					<h2 className="d-inline-block m-3">Tasks</h2>
-					<AddTask className="float-end m-3">+ Add Task</AddTask>
+			<div className="m-3">
+				<div className="mb-2">
+					<h2 className="d-inline-block">Tasks</h2>
+					<AddTask className="float-end">+ Add Task</AddTask>
 				</div>
-				<Table bordered hover>
-					<thead>
+				<Table bordered>
+					<thead style={{ backgroundColor: "#EEE" }}>
 						<tr>
 							<th>Task Name</th>
 							<th>Description</th>
@@ -43,7 +43,7 @@ class Tasks extends React.Component {
 						}
 					</tbody>
 				</Table>
-			</>
+			</div>
 		);
 	}
 }
