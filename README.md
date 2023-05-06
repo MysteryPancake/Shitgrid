@@ -1,6 +1,6 @@
 # Shitgrid
 
-Like Kitsu but worse!
+Definitely not Kitsu
 
 ## Components
 
