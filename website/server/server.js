@@ -34,7 +34,7 @@ router.post('/addtask', (req, res) => {
 	const taskDesc = req.body.taskDesc.trim();
 
 	if (!taskName || !taskDesc) {
-		res.sendStatus(400); // Bad request
+		res.sendStatus(400);
 		return;
 	}
 
@@ -54,7 +54,7 @@ router.post('/addtask', (req, res) => {
 	// Write "tasks.json" again
 	fs.writeFileSync(jsonFile, JSON.stringify(jsonData));
 
-	res.sendStatus(200); // Success
+	res.sendStatus(200);
 });
 
 router.get('/gettasks', (req, res) => {
@@ -74,14 +74,8 @@ router.post('/addasset', (req, res) => {
 	const assetDesc = req.body.assetDesc.trim();
 
 	if (!assetName || !assetDesc) {
-		res.sendStatus(400); // Bad request
+		res.sendStatus(400);
 		return;
-	}
-
-	// Create subfolder in Blender folder if required
-	const wipFolder = path.join(BLEND_DB, assetName);
-	if (!fs.existsSync(wipFolder)) {
-		fs.mkdirSync(wipFolder);
 	}
 
 	// Who needs a real database
@@ -92,7 +86,12 @@ router.post('/addasset', (req, res) => {
 		const content = fs.readFileSync(jsonFile);
 		jsonData = JSON.parse(content);
 	}
-	// Add new asset to array
+	// Don't override existing data
+	if (jsonData.find(e => e.assetName == assetName)) {
+		res.status(400);
+		return;
+	}
+	// Add new asset to object
 	jsonData.push({
 		assetName: assetName,
 		assetType: assetType,
@@ -100,6 +99,12 @@ router.post('/addasset', (req, res) => {
 	});
 	// Write "assets.json" again
 	fs.writeFileSync(jsonFile, JSON.stringify(jsonData));
+
+	// Create subfolder in Blender folder if required
+	const wipFolder = path.join(BLEND_DB, assetName);
+	if (!fs.existsSync(wipFolder)) {
+		fs.mkdirSync(wipFolder);
+	}
 
 	res.sendStatus(200);
 });
