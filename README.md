@@ -1,6 +1,6 @@
 # Shitgrid
 
-Like Kitsu but worse :)
+Like Kitsu but worse!
 
 ## Components
 
@@ -20,13 +20,13 @@ Assets get published into the folders created by the website.
 
 ### Website
 
-Set `SHITGRID_WEB_DB` to a folder where you want the backend database to be stored, for example `C:/web_db`.
-Set `REACT_APP_SHITGRID_SERVER` to the URL of the web server backend, for example `http://localhost`.
-Set `REACT_APP_SHITGRID_PORT` to the web server backend port, for example `5000`.
+- Set `SHITGRID_WEB_DB` to a folder where you want the backend database to be stored, for example `C:/web_db`.
+- Set `REACT_APP_SHITGRID_SERVER` to the URL of the web server backend, for example `http://localhost`.
+- Set `REACT_APP_SHITGRID_PORT` to the web server backend port, for example `5000`.
 
 ### Blender Addon
 
-Set `SHITGRID_BLEND_DB` to a folder where you want Blender files to be stored, for example `C:/blender_db`.
+- Set `SHITGRID_BLEND_DB` to a folder where you want Blender files to be stored, for example `C:/blender_db`.
 
 ## Installation
 
