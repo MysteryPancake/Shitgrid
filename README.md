@@ -47,5 +47,5 @@ Assets get published into the folders created by the website.
 ### Blender Addon
 
 1. Open Blender Preferences
-2. Install the file `blender_addon/__init__.py`
+2. Install the file in the `blender_addon` folder
 3. Press `N` to open the menu

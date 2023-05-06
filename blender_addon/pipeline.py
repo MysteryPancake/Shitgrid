@@ -55,6 +55,12 @@ class Publish_Operator(bpy.types.Operator):
 	def execute(self, context):
 		props = context.scene.shitgrid_props
 
+		# Directory for storing published Blender files for building
+		blender_db = os.environ.get("SHITGRID_BLEND_DB")
+		if not blender_db:
+			self.report({"ERROR"}, "Missing environment variable SHITGRID_BLEND_DB!")
+			return {"CANCELLED"}
+
 		if not props.department:
 			self.report({"ERROR_INVALID_INPUT"}, "Please select a department!")
 			return {"CANCELLED"}
@@ -64,7 +70,6 @@ class Publish_Operator(bpy.types.Operator):
 			return {"CANCELLED"}
 
 		# Make sure to set the SHITGRID_BLEND_DB environment variable or this will break!
-		blender_db = os.environ["SHITGRID_BLEND_DB"]
 		task_folder = os.path.join(blender_db, props.task)
 		if not os.path.exists(task_folder):
 			self.report({"ERROR"}, "Task {} doesn't exist yet!\nAdd it on the website.".format(props.task))

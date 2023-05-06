@@ -3,27 +3,39 @@ const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const app = express();
-const port = process.env.REACT_APP_SHITGRID_PORT || 5000;
 
-// Use JSON requests for now
-app.use(express.json());
-
-// Allow frontend and backend to communicate on the same device
-app.use(cors());
-
-const router = express.Router();
+const PORT = process.env.REACT_APP_SHITGRID_PORT;
+if (!PORT) {
+	console.error("Missing environment variable REACT_APP_SHITGRID_PORT!");
+	return;
+}
 
 // Main folder for website database files, using JSON for the moment
 const WEB_DB = process.env.SHITGRID_WEB_DB;
+if (WEB_DB) {
+	console.log(`Website database set to ${WEB_DB}`);
+} else {
+	console.error("Missing environment variable SHITGRID_WEB_DB!");
+	return;
+}
 
 // Contains subfolders for each department, "modelling", "surfacing", etc
 const BLEND_DB = process.env.SHITGRID_BLEND_DB;
+if (BLEND_DB) {
+	console.log(`Blender database set to ${BLEND_DB}`);
+} else {
+	console.error("Missing environment variable SHITGRID_BLEND_DB!");
+	return;
+}
+
+// Allow frontend and backend to communicate on the same device
+app.use(cors());
+app.use(express.json());
 
 const TASK_DB = "tasks.json";
 const ASSET_DB = "assets.json";
 
-console.log(`Website database set to ${WEB_DB}`);
-console.log(`Blender database set to ${BLEND_DB}`);
+const router = express.Router();
 
 router.get('/', (req, res) => {
 	res.send('Backend is working!');
@@ -122,4 +134,4 @@ router.get('/getassets', (req, res) => {
 
 app.use(router);
 
-app.listen(port, () => console.log(`Listening on port ${port}`));
+app.listen(PORT, () => console.log(`Listening on port ${PORT}`));
