@@ -35,9 +35,9 @@ class Tasks extends React.Component {
 						{
 							this.state.tasks.map((task, i) => {
 								return <tr key={i}>
-									<td>{task.taskName}</td>
-									<td>{task.taskDesc}</td>
-									<td>{task.taskAssets}</td>
+									<td>{task.name}</td>
+									<td>{task.description}</td>
+									<td>{task.assets}</td>
 								</tr>
 							})
 						}

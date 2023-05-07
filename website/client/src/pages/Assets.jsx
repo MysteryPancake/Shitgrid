@@ -38,9 +38,9 @@ class Assets extends React.Component {
 							this.state.assets.map((asset, i) => {
 								return <tr key={i}>
 									<td>{asset.thumbnail}</td>
-									<td>{asset.assetName}</td>
-									<td>{asset.assetType}</td>
-									<td>{asset.assetDesc}</td>
+									<td>{asset.name}</td>
+									<td>{asset.type}</td>
+									<td>{asset.description}</td>
 									<td>{asset.status}</td>
 								</tr>
 							})

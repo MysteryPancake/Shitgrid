@@ -60,8 +60,9 @@ router.post('/addtask', (req, res) => {
 	}
 	// Add new task to array
 	jsonData.push({
-		taskName: taskName,
-		taskDesc: taskDesc
+		name: taskName,
+		description: taskDesc,
+		assets: []
 	});
 	// Write "tasks.json" again
 	fs.writeFileSync(jsonFile, JSON.stringify(jsonData));
@@ -99,15 +100,17 @@ router.post('/addasset', (req, res) => {
 		jsonData = JSON.parse(content);
 	}
 	// Don't override existing data
-	if (jsonData.find(e => e.assetName == assetName)) {
+	if (jsonData.find(e => e.name == assetName)) {
 		res.status(400);
 		return;
 	}
 	// Add new asset to object
 	jsonData.push({
-		assetName: assetName,
-		assetType: assetType,
-		assetDesc: assetDesc
+		name: assetName,
+		type: assetType,
+		description: assetDesc,
+		thumbnail: "",
+		status: "TODO"
 	});
 	// Write "assets.json" again
 	fs.writeFileSync(jsonFile, JSON.stringify(jsonData));

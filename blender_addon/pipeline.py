@@ -36,9 +36,9 @@ class Properties(bpy.types.PropertyGroup):
 	def set_dept(self, value):
 		bpy.context.preferences.addons[__name__].preferences.dept = value
 
-	# Load properties
-	load_asset: bpy.props.StringProperty(name="Asset Name")
-	load_version: bpy.props.StringProperty(name="Version", default="latest")
+	# Fetch properties
+	fetch_asset: bpy.props.StringProperty(name="Asset Name")
+	fetch_version: bpy.props.StringProperty(name="Version", default="latest")
 
 	# Publish properties
 	dept: bpy.props.EnumProperty(
@@ -49,28 +49,28 @@ class Properties(bpy.types.PropertyGroup):
 	)
 	publish_asset: bpy.props.StringProperty(name="Asset Name")
 
-class Load_Operator(bpy.types.Operator):
-	"""Build a published asset by combining parts together"""
-	bl_idname = "pipeline.load"
-	bl_label = "Load"
+class Fetch_Operator(bpy.types.Operator):
+	"""Fetch a published asset by combining parts together"""
+	bl_idname = "pipeline.fetch"
+	bl_label = "Fetch"
 
 	def execute(self, context):
 		props = context.scene.shitgrid_props
 
-		if not props.load_asset:
+		if not props.fetch_asset:
 			self.report({"ERROR_INVALID_INPUT"}, "Please type in an asset!")
 			return {"CANCELLED"}
 
-		if not props.load_version:
+		if not props.fetch_version:
 			self.report({"ERROR_INVALID_INPUT"}, "Please type in a version!")
 			return {"CANCELLED"}
 
 		# TODO
 		return {"FINISHED"}
 
-class Load_Panel(bpy.types.Panel):
-	bl_label = "Load Asset"
-	bl_idname = "ALA_PT_Shitgrid_Load"
+class Fetch_Panel(bpy.types.Panel):
+	bl_label = "Fetch Asset"
+	bl_idname = "ALA_PT_Shitgrid_Fetch"
 	bl_space_type = "VIEW_3D"
 	bl_region_type = "UI"
 	bl_category = "Shitgrid"
@@ -78,9 +78,9 @@ class Load_Panel(bpy.types.Panel):
 	def draw(self, context):
 		layout = self.layout
 		scn = context.scene
-		layout.prop(scn.shitgrid_props, "load_asset")
-		layout.prop(scn.shitgrid_props, "load_version")
-		layout.operator(Load_Operator.bl_idname)
+		layout.prop(scn.shitgrid_props, "fetch_asset")
+		layout.prop(scn.shitgrid_props, "fetch_version")
+		layout.operator(Fetch_Operator.bl_idname)
 
 class Publish_Operator(bpy.types.Operator):
 	"""Save and increment the version of the above assets"""
@@ -145,7 +145,7 @@ class Publish_Panel(bpy.types.Panel):
 		layout.operator(Publish_Operator.bl_idname)
 
 # Dump all classes Blender has to register in here
-classes = [Load_Panel, Publish_Panel, Properties, Preferences, Publish_Operator, Load_Operator]
+classes = [Fetch_Panel, Publish_Panel, Properties, Preferences, Publish_Operator, Fetch_Operator]
 
 def register():
 	for cls in classes:
