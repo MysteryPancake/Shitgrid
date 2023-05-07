@@ -49,3 +49,9 @@ Assets get published into the folders created by the website.
 1. Open Blender Preferences
 2. Install the file in the `blender_addon` folder
 3. Press `N` to open the menu
+
+## Architecture
+
+### Website Backend
+
+<img src="images/web_backend_uml.png">
