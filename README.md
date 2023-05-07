@@ -26,7 +26,7 @@ The build scripts take published files and consolidate them into single assets.
 
 The backend is written in JavaScript using Express.
 
-It doesn't use a database for now. It just uses basic file storage with `assets.json` and `tasks.json`.
+It doesn't use a database for now, just basic file storage in `assets.json` and `tasks.json`.
 
 <img src="images/web_backend_uml.png">
 
