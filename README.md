@@ -7,26 +7,46 @@ Definitely not Kitsu
 ### Website
 
 The website is designed to imitate Shotgrid, with basic abilities to create and view tasks and assets.
-It uses a React frontend and an Express backend, both which have to be run separately.
+
 When an asset is added via the frontend, the backend creates a folder on disk.
+
 These folders are used by the Blender addon as described below.
 
 ### Blender Addon
 
 The Blender addon is responsible for managing asset versions.
+
 Assets get published into the folders created by the website.
+
+## Architecture
+
+### Website Backend
+
+The backend is written in JavaScript using Express.
+
+It doesn't use a database for now. It just uses basic file storage with `assets.json` and `tasks.json`.
+
+<img src="images/web_backend_uml.png">
+
+### Website Frontend
+
+The frontend is written in JavaScript and JSX using React.
+
+### Blender Addon
+
+The Blender addon is written in Python.
 
 ## Environment Variables
 
 ### Website
 
-- Set `SHITGRID_WEB_DB` to a folder where you want the backend database to be stored, for example `C:/web_db`.
-- Set `REACT_APP_SHITGRID_SERVER` to the URL of the web server backend, for example `http://localhost`.
-- Set `REACT_APP_SHITGRID_PORT` to the web server backend port, for example `5000`.
+- Set `SHITGRID_WEB_DB` to the folder you want the JSON files to be stored, for example `C:/web_db`.
+- Set `REACT_APP_SHITGRID_SERVER` to whatever URL the backend is hosted on, for example `http://localhost`.
+- Set `REACT_APP_SHITGRID_PORT` to whatever port the backend is hosted on, for example `5000`.
 
 ### Blender Addon
 
-- Set `SHITGRID_BLEND_DB` to a folder where you want Blender files to be stored, for example `C:/blender_db`.
+- Set `SHITGRID_BLEND_DB` to the folder you want Blender files to be saved, for example `C:/blender_db`.
 
 ## Installation
 
@@ -49,9 +69,3 @@ Assets get published into the folders created by the website.
 1. Open Blender Preferences
 2. Install the file in the `blender_addon` folder
 3. Press `N` to open the menu
-
-## Architecture
-
-### Website Backend
-
-<img src="images/web_backend_uml.png">
