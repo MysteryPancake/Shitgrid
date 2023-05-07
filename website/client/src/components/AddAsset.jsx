@@ -1,4 +1,5 @@
 import React from 'react';
+import Alert from 'react-bootstrap/Alert';
 import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
 import Form from 'react-bootstrap/Form';
@@ -22,9 +23,18 @@ class AddAsset extends React.Component {
 		this.setState({ show: false });
 	}
 
+	validate = async(e) => {
+		if (e.ok) {
+			window.location.reload();
+		} else {
+			const msg = e.message || await e.text();
+			this.setState({ error: msg });
+		}
+	}
+
 	submit = (e) => {
 		e.preventDefault();
-		fetch(`${process.env.REACT_APP_SHITGRID_SERVER}:${process.env.REACT_APP_SHITGRID_PORT}/addasset`, {
+		fetch(`${process.env.REACT_APP_SHITGRID_SERVER}:${process.env.REACT_APP_SHITGRID_PORT}/assets/add`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
@@ -32,7 +42,7 @@ class AddAsset extends React.Component {
 				assetType: this.state.assetType,
 				assetDesc: this.state.assetDesc
 			})
-		}).then(() => window.location.reload());
+		}).then(this.validate).catch(this.validate);
 	}
 
 	render() {
@@ -51,6 +61,7 @@ class AddAsset extends React.Component {
 								name="assetName"
 								type="text"
 								autoFocus
+								maxLength={255}
 								value={this.state.assetName}
 								onChange={e => this.setState({ assetName: e.target.value })}
 								required
@@ -77,10 +88,10 @@ class AddAsset extends React.Component {
 								rows={6}
 								value={this.state.assetDesc}
 								onChange={e => this.setState({ assetDesc: e.target.value })}
-								required
 							/>
 						</Modal.Body>
 						<Modal.Footer>
+							<Alert variant="danger" show={!!this.state.error}>{this.state.error}</Alert>
 							<Button variant="secondary" onClick={this.hideModal}>Cancel</Button>
 							<Button type="submit" variant="primary">Add Asset</Button>
 						</Modal.Footer>

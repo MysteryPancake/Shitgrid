@@ -1,4 +1,5 @@
 import React from 'react';
+import Alert from 'react-bootstrap/Alert';
 import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
 import Form from 'react-bootstrap/Form';
@@ -21,16 +22,25 @@ class AddTask extends React.Component {
 		this.setState({ show: false });
 	}
 
+	validate = async(e) => {
+		if (e.ok) {
+			window.location.reload();
+		} else {
+			const msg = e.message || await e.text();
+			this.setState({ error: msg });
+		}
+	}
+
 	submit = (e) => {
 		e.preventDefault();
-		fetch(`${process.env.REACT_APP_SHITGRID_SERVER}:${process.env.REACT_APP_SHITGRID_PORT}/addtask`, {
+		fetch(`${process.env.REACT_APP_SHITGRID_SERVER}:${process.env.REACT_APP_SHITGRID_PORT}/tasks/add`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
 				taskName: this.state.taskName,
 				taskDesc: this.state.taskDesc
 			})
-		}).then(() => window.location.reload());
+		}).then(this.validate).catch(this.validate);
 	}
 
 	render() {
@@ -62,10 +72,10 @@ class AddTask extends React.Component {
 								rows={6}
 								value={this.state.taskDesc}
 								onChange={e => this.setState({ taskDesc: e.target.value })}
-								required
 							/>
 						</Modal.Body>
 						<Modal.Footer>
+							<Alert variant="danger" show={!!this.state.error}>{this.state.error}</Alert>
 							<Button variant="secondary" onClick={this.hideModal}>Cancel</Button>
 							<Button type="submit" variant="primary">Add Task</Button>
 						</Modal.Footer>
