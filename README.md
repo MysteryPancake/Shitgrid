@@ -14,9 +14,11 @@ These folders are used by the Blender addon as described below.
 
 ### Blender Addon
 
-The Blender addon is responsible for managing asset versions.
+The Blender addon is responsible for publishing, version control and building.
 
-Assets get published into the folders created by the website.
+Once an asset folder is added, the addon will publish Blender files into that folder.
+
+The build scripts take published files and consolidate them into single assets.
 
 ## Architecture
 
