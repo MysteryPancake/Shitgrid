@@ -14,7 +14,7 @@ router.post('/add', (req, res) => {
 
 	// Prevent folder name issues
 	assetName = assetName.trim();
-	if (/[^\w-]/g.test(assetName)) {
+	if (/[^\w\- ]/g.test(assetName)) {
 		res.status(400).send("Asset name contains characters not allowed in filenames!");
 		return;
 	} else if (assetName.length > 255) {
@@ -53,10 +53,10 @@ router.post('/add', (req, res) => {
 	});
 	fs.writeFileSync(jsonFile, JSON.stringify(jsonData));
 
-	// Create subfolder in Blender folder if required
-	const wipFolder = path.join(req.app.locals.BLEND_DB, assetName);
+	// Create master/wip/asset subfolder if required
+	const wipFolder = path.join(req.app.locals.BLEND_DB, "wip", assetName);
 	if (!fs.existsSync(wipFolder)) {
-		fs.mkdirSync(wipFolder);
+		fs.mkdirSync(wipFolder, { recursive: true });
 	}
 
 	res.sendStatus(200);

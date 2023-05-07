@@ -10,6 +10,8 @@ import Dashboard from './pages/Dashboard';
 import Assets from './pages/Assets';
 import Tasks from './pages/Tasks';
 import Debug from './pages/Debug';
+import Builds from './pages/Builds';
+import NotFound from './pages/NotFound';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
@@ -21,6 +23,8 @@ root.render(
 				<Route path="/assets" element={<Assets/>} />
 				<Route path="/tasks" element={<Tasks/>} />
 				<Route path="/debug" element={<Debug/>} />
+				<Route path="/builds" element={<Builds/>} />
+				<Route path='*' element={<NotFound />}/>
 			</Routes>
 		</BrowserRouter>
 	</React.StrictMode>

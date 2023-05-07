@@ -20,6 +20,7 @@ function TopBar() {
 				<Nav.Link as={Link} to="/">Dashboard</Nav.Link>
 				<Nav.Link as={Link} to="/assets">Assets</Nav.Link>
 				<Nav.Link as={Link} to="/tasks">Tasks</Nav.Link>
+				<Nav.Link as={Link} to="/builds">Builds</Nav.Link>
 			</Nav>
 		</Navbar>
 	);
