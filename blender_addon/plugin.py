@@ -1,5 +1,4 @@
 import bpy, os
-from layers import *
 
 bl_info = {
 	"name": "Shitgrid Pipeline",
@@ -17,10 +16,10 @@ class Preferences(bpy.types.AddonPreferences):
 	bl_idname = __name__
 	layer: bpy.props.IntProperty(name="Task Layer", default=0)
 
-# Populate dropdown menu based on task layers
-layer_items = []
-for layer in layers:
-	layer_items.append((layer.folder, layer.label, ""))
+layer_items = [
+	("models", "Modelling: Models", ""),
+	("mats", "Surfacing: Materials", ""),
+]
 
 class Properties(bpy.types.PropertyGroup):
 	def get_layer(self):
