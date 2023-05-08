@@ -1,6 +1,6 @@
 # Shitgrid
 
-Definitely not Kitsu
+Definitely not Kitsu!
 
 ## Components
 
@@ -8,17 +8,17 @@ Definitely not Kitsu
 
 The website is designed to imitate Shotgrid, with basic abilities to create and view tasks and assets.
 
-When an asset is added via the frontend, the backend creates a folder on disk.
+When an asset is added via the frontend, the backend creates a folder on disk within the `wip` folder.
 
-These folders are used by the Blender addon as described below.
+The folders are used by the Blender addon as described below.
 
 ### Blender Addon
 
 The Blender addon is responsible for publishing, version control and building.
 
-Once an asset folder is added, the addon will publish Blender files into that folder.
+Once a `wip` asset folder is added via the website, the addon can publish Blender files into that folder.
 
-The build scripts take published files and consolidate them into single assets.
+The build scripts take `wip` files and consolidate them into single assets, located in the `build` folder.
 
 ## Architecture
 
@@ -42,13 +42,13 @@ The Blender addon is written in Python.
 
 ### Website
 
-- Set `SHITGRID_WEB_DB` to the folder you want the JSON files to be stored, for example `C:/web_db`.
-- Set `REACT_APP_SHITGRID_SERVER` to whatever URL the backend is hosted on, for example `http://localhost`.
-- Set `REACT_APP_SHITGRID_PORT` to whatever port the backend is hosted on, for example `5000`.
+- Set `SHITGRID_WEB_DB` to the folder you want the JSON files to be stored, for example `C:/web_db`
+- Set `REACT_APP_SHITGRID_SERVER` to whatever URL the backend is hosted on, for example `http://localhost`
+- Set `REACT_APP_SHITGRID_PORT` to whatever port the backend is hosted on, for example `5000`
 
 ### Blender Addon
 
-- Set `SHITGRID_BLEND_DB` to the folder you want Blender files to be saved, for example `C:/blender_db`.
+- Set `SHITGRID_BLEND_DB` to the folder you want Blender files to be saved, for example `C:/blender_db`
 
 ## Installation
 
@@ -69,5 +69,5 @@ The Blender addon is written in Python.
 ### Blender Addon
 
 1. Open Blender Preferences
-2. Install the file in the `blender_addon` folder
+2. Install the `plugin.py` file in the `blender_addon` folder
 3. Press `N` to open the menu
