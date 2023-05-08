@@ -1,3 +1,5 @@
+import bpy
+
 class Layer_Core:
 	# ========================================================================
 	# Core is the deepest build layer.
