@@ -39,6 +39,9 @@ function Dashboard() {
 					<Col>
 						<Timer time="November 2, 25236 02:50:03.405" event="Dad Comes Back with the Milk"/>
 					</Col>
+					<Col>
+						<Timer time="June 23, 35236 08:23:34.123" event="Half-Life 3"/>
+					</Col>
 				</Row>
 			</Container>
 		</div>

@@ -1,2 +1,6 @@
-cd "C:\Program Files (x86)\Steam\steamapps\common\Blender"
-blender.exe -b --python-use-system-env -P "C:\Users\MysteryPancake\Desktop\Blender_Pipeline\github\blender_addon\clean.py" -P "C:\Users\MysteryPancake\Desktop\Blender_Pipeline\github\blender_addon\build.py" -- --asset "robot_2"
+:: This should be automated
+ECHO off
+SET /p asset="Type an asset name: "
+
+:: This shouldn't be hardcoded
+"C:\Program Files (x86)\Steam\steamapps\common\Blender\blender.exe" -b --python-use-system-env -P "clean.py" -P "build.py" -- --asset "%asset%"

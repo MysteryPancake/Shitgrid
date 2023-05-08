@@ -18,7 +18,8 @@ class Preferences(bpy.types.AddonPreferences):
 
 layer_items = [
 	("models", "Modelling: Models", ""),
-	("mats", "Surfacing: Materials", ""),
+	("materials", "Surfacing: Materials", ""),
+	("rigs", "Rigging: Rigs", ""),
 ]
 
 class Properties(bpy.types.PropertyGroup):
