@@ -1,0 +1,2 @@
+cd "C:\Program Files (x86)\Steam\steamapps\common\Blender"
+blender.exe -b --python-use-system-env -P "C:\Users\MysteryPancake\Desktop\Blender_Pipeline\github\blender_addon\clean.py" -P "C:\Users\MysteryPancake\Desktop\Blender_Pipeline\github\blender_addon\build.py" -- --asset "robot_2"
