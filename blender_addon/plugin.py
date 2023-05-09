@@ -44,7 +44,7 @@ class Publish_Operator(bpy.types.Operator):
 	bl_label = "Publish"
 
 	def execute(self, context):
-		props = context.scene.shitgrid_props
+		props = context.scene.sg_props
 
 		# Directory for storing published Blender files for building
 		blender_db = os.environ.get("SHITGRID_BLEND_DB")
@@ -96,8 +96,8 @@ class Publish_Panel(bpy.types.Panel):
 	def draw(self, context):
 		layout = self.layout
 		scn = context.scene
-		layout.prop(scn.shitgrid_props, "layer")
-		layout.prop(scn.shitgrid_props, "publish_asset")
+		layout.prop(scn.sg_props, "layer")
+		layout.prop(scn.sg_props, "publish_asset")
 		layout.operator(Publish_Operator.bl_idname)
 
 # Dump all classes to register in here
@@ -107,11 +107,11 @@ def register():
 	for cls in classes:
 		bpy.utils.register_class(cls)
 	scn = bpy.types.Scene
-	scn.shitgrid_props = bpy.props.PointerProperty(type=Properties)
+	scn.sg_props = bpy.props.PointerProperty(type=Properties)
 
 def unregister():
 	scn = bpy.types.Scene
-	del scn.shitgrid_props
+	del scn.sg_props
 	for cls in classes:
 		bpy.utils.unregister_class(cls)
 

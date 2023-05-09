@@ -4,82 +4,71 @@ blender_db = os.environ.get("SHITGRID_BLEND_DB")
 if not blender_db:
 	raise Exception("Missing environment variable SHITGRID_BLEND_DB!")
 
-# BASE
-
-def load_base_geo(blend):
-	# This assumes clean.py was run before to remove everything.
-	# Rename default scene to prevent name conflicts
-	bpy.context.scene.name = "TEMPORARY_SCENE"
-
-	# We can't assume artists will use collections, so import scenes instead.
-	# Blender doesn't allow importing the Scene Collection, otherwise we could use that.
-	with bpy.data.libraries.load(blend, link=False, assets_only=False) as (data_from, data_to):
-		data_to.scenes = data_from.scenes
-
-	# Remove the default scene
-	bpy.data.scenes.remove(bpy.context.scene)
-
-	# Clear unnecessary data blocks
-	blacklist = [
-		bpy.data.materials,
-		bpy.data.lights,
-		bpy.data.brushes,
-		bpy.data.lightprobes,
-		bpy.data.cameras,
-		bpy.data.armatures,
-		bpy.data.actions,
-		bpy.data.palettes,
-		bpy.data.textures,
-		bpy.data.images,
-		bpy.data.speakers
-	]
-	
-	for junk in blacklist:
-		for item in junk:
-			junk.remove(item)
-
+def kill_orphans():
 	bpy.data.orphans_purge(do_local_ids=True, do_linked_ids=True, do_recursive=True)
 
-# LAYERS
-
-class Layer_Material:
+class Layer_Base:
+# ========================================================================
+# BASE LAYER
+# The deepest build layer, only used when headlessly building assets
+# It extracts stuff from modelling without materials, rigs, etc
+# ========================================================================
 	@staticmethod
 	def process(blend):
-		whitelist = [
-			bpy.data.images,
-			bpy.data.materials,
-			bpy.data.brushes,
-			bpy.data.grease_pencils,
-			bpy.data.paint_curves,
-			bpy.data.palettes,
-			bpy.data.textures,
-			bpy.data.linestyles
+		# Assuming clean.py ran first, our collection is empty
+		our_collection = bpy.context.scene.collection
+
+		# There's no way to import just Scene Collections, so import scenes instead
+		with bpy.data.libraries.load(blend, link=False) as (their_data, new_data):
+			new_data.scenes = their_data.scenes
+
+		# Copy their Scene Collection stuff into ours
+		for scene in new_data.scenes:
+			for obj in scene.collection.objects:
+				our_collection.objects.link(obj)
+			for col in scene.collection.children:
+				our_collection.children.link(col)
+			# Done copying, remove the imported scene
+			bpy.data.scenes.remove(scene)
+
+		# Clean up extra data and unused scenes
+		blacklist = [
+			bpy.data.materials, bpy.data.lights, bpy.data.brushes, bpy.data.lightprobes,
+			bpy.data.cameras, bpy.data.armatures, bpy.data.actions, bpy.data.palettes,
+			bpy.data.textures, bpy.data.images, bpy.data.speakers, bpy.data.linestyles
 		]
-		#with bpy.data.libraries.load(blend, link=False, assets_only=False) as (data_from, data_to):
-			#print("TODO")
+		for junk in blacklist:
+			for item in junk:
+				junk.remove(item)
 
+		kill_orphans()
 
+class Layer_Materials:
+# ========================================================================
+# MATERIALS LAYER
+# This assumes models exist in the scene, and transfers materials to them
+# Brushes, palettes could be split into a separate surfacing library layer
+# ========================================================================
+	@staticmethod
+	def process(blend):
+		our_collection = bpy.context.scene.collection
 
+		with bpy.data.libraries.load(blend, link=False) as (their_data, new_data):
+			new_data.images = their_data.images
+			new_data.materials = their_data.materials
+			new_data.brushes = their_data.brushes
+			new_data.grease_pencils = their_data.grease_pencils
+			new_data.paint_curves = their_data.paint_curves
+			new_data.palettes = their_data.palettes
+			new_data.textures = their_data.textures
+			new_data.linestyles = their_data.linestyles
 
+		# TODO: ASSIGN MATERIALS TO MODELS
+		print("TODO")
+		for scene in new_data.scenes:
+			bpy.data.scenes.remove(scene)
 
-
-
-# TODO: EVERYTHING
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# BUILDER
+		kill_orphans()
 
 class Asset_Builder:
 	def __init__(self, asset):
@@ -98,11 +87,11 @@ class Asset_Builder:
 		return os.path.join(wip_folder, files[version])
 
 	def build_full(self):
-		# We need geometry to work with, load the model first
-		load_base_geo(self.__find_version("models", -1))
+		# Load base geometry from modelling
+		#Layer_Base.process(self.__find_version("models", -1))
 
-		# Materials next
-		#Layer_Material.process(self.__find_version("materials", -1))
+		# Load materials from surfacing
+		Layer_Materials.process(self.__find_version("materials", -1))
 
 	def save(self):
 		# Structure is "master/build/asset/asset_v001.blend" for now
@@ -134,8 +123,8 @@ def get_args():
 	return parsed_args
 
 if __name__ == "__main__":
-	args = get_args()
-	builder = Asset_Builder(args.asset)
-	#builder = Asset_Builder("robot_2")
+	#args = get_args()
+	#builder = Asset_Builder(args.asset)
+	builder = Asset_Builder("debug")
 	builder.build_full()
-	builder.save()
+	#builder.save()
