@@ -11,9 +11,10 @@ if not blender_db:
 # This avoids naming issues, but puts more emphasis on hierarchy and content.
 # ==============================================================================
 def add_link(block, file):
-	# Never override association data
+	# Never override link data
 	if hasattr(block, "sg_asset"):
 		return
+	# Assign link data to any data block
 	block["sg_asset"] = file.name
 	block["sg_layer"] = file.layer
 	block["sg_version"] = file.version
