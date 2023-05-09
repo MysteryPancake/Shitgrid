@@ -4,22 +4,43 @@ blender_db = os.environ.get("SHITGRID_BLEND_DB")
 if not blender_db:
 	raise Exception("Missing environment variable SHITGRID_BLEND_DB!")
 
+# ==============================================================================
+# Kitsu uses Blender names for linking. I want to avoid this.
+# Blender names must be unique, so Blender often renames things without consent.
+# Instead of names, I use custom data to create an imaginary link.
+# This avoids naming issues, but puts more emphasis on hierarchy and content.
+# ==============================================================================
+def add_link(block, file):
+	# Never override association data
+	if hasattr(block, "sg_asset"):
+		return
+	block["sg_asset"] = file.name
+	block["sg_layer"] = file.layer
+	block["sg_version"] = file.version
+
+class Source_File:
+	def __init__(self, path, name, layer, version):
+		self.path = path 		# String: Full path to layer Blend file
+		self.name = name 		# String: Asset name
+		self.layer = layer 		# String: Task layer
+		self.version = version 	# UInt: Layer version (starts at 1)
+
 def kill_orphans():
 	bpy.data.orphans_purge(do_local_ids=True, do_linked_ids=True, do_recursive=True)
 
 class Layer_Base:
 # ========================================================================
 # BASE LAYER
-# The deepest build layer, only used when headlessly building assets
-# It extracts stuff from modelling without materials, rigs, etc
+# The deepest build layer, only used when headlessly building
+# Extracts stuff from modelling without materials, rigs, etc
 # ========================================================================
 	@staticmethod
-	def process(blend):
+	def process(file):
 		# Assuming clean.py ran first, our collection is empty
 		our_collection = bpy.context.scene.collection
 
 		# There's no way to import just Scene Collections, so import scenes instead
-		with bpy.data.libraries.load(blend, link=False) as (their_data, new_data):
+		with bpy.data.libraries.load(file.path, link=False) as (their_data, new_data):
 			new_data.scenes = their_data.scenes
 
 		# Copy their Scene Collection stuff into ours
@@ -31,6 +52,12 @@ class Layer_Base:
 			# Done copying, remove the imported scene
 			bpy.data.scenes.remove(scene)
 
+		# Link all objects and collections (just for safety, only the top layer is needed)
+		for obj in bpy.data.objects:
+			add_link(obj, file)
+		for col in bpy.data.collections:
+			add_link(col, file)
+
 		# Clean up extra data and unused scenes
 		blacklist = [
 			bpy.data.materials, bpy.data.lights, bpy.data.brushes, bpy.data.lightprobes,
@@ -40,7 +67,6 @@ class Layer_Base:
 		for junk in blacklist:
 			for item in junk:
 				junk.remove(item)
-
 		kill_orphans()
 
 class Layer_Materials:
@@ -50,10 +76,11 @@ class Layer_Materials:
 # Brushes, palettes could be split into a separate surfacing library layer
 # ========================================================================
 	@staticmethod
-	def process(blend):
+	def process(file):
 		our_collection = bpy.context.scene.collection
 
-		with bpy.data.libraries.load(blend, link=False) as (their_data, new_data):
+		with bpy.data.libraries.load(file.path, link=False) as (their_data, new_data):
+			new_data.scenes = their_data.scenes
 			new_data.images = their_data.images
 			new_data.materials = their_data.materials
 			new_data.brushes = their_data.brushes
@@ -67,31 +94,32 @@ class Layer_Materials:
 		print("TODO")
 		for scene in new_data.scenes:
 			bpy.data.scenes.remove(scene)
-
 		kill_orphans()
 
 class Asset_Builder:
 	def __init__(self, asset):
 		self.asset = asset
 
-	def __find_version(self, layer, version=-1):
+	def __get_versions(self, layer):
 		# Structure is "master/wip/asset/layer/asset_layer_v001.blend" for now
 		wip_folder = os.path.join(blender_db, "wip", self.asset, layer)
 		if not os.path.exists(wip_folder):
 			raise NotADirectoryError("Missing {} folder: {}".format(layer, wip_folder))
-
 		# Sort by name to retrieve correct version order
-		files = sorted([p for p in os.listdir(wip_folder) if p.endswith(".blend")])
+		return sorted([os.path.join(wip_folder, f) for f in os.listdir(wip_folder) if f.endswith(".blend")])
 
-		# This throws an IndexError if the version doesn't exist
-		return os.path.join(wip_folder, files[version])
+	def __get_latest(self, layer):
+		versions = self.__get_versions(layer)
+		latest = len(versions)
+		path = versions[latest - 1]
+		return Source_File(path, self.asset, layer, latest)
 
 	def build_full(self):
 		# Load base geometry from modelling
-		#Layer_Base.process(self.__find_version("models", -1))
+		Layer_Base.process(self.__get_latest("models"))
 
 		# Load materials from surfacing
-		Layer_Materials.process(self.__find_version("materials", -1))
+		#Layer_Materials.process(self.__get_latest("materials"))
 
 	def save(self):
 		# Structure is "master/build/asset/asset_v001.blend" for now
@@ -100,7 +128,7 @@ class Asset_Builder:
 			os.makedirs(build_folder)
 
 		# Up version number based on file index in subfolder
-		version = len([p for p in os.listdir(build_folder) if p.endswith(".blend")]) + 1
+		version = len([f for f in os.listdir(build_folder) if f.endswith(".blend")]) + 1
 
 		# Name is "asset_v001.blend" for now
 		file_name = "{}_v{:03d}.blend".format(self.asset, version)
