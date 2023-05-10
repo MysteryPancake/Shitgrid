@@ -17,17 +17,40 @@ class Preferences(bpy.types.AddonPreferences):
 	layer: bpy.props.IntProperty(name="Task Layer", default=0)
 
 layer_items = [
-	("models", "Modelling: Models", ""),
-	("materials", "Surfacing: Materials", ""),
-	("rigs", "Rigging: Rigs", ""),
+	("models", "Models", ""),
+	("materials", "Materials / UVs", ""),
+	("rigs", "Rigs", ""),
+	("lights", "Lights", ""),
 ]
+
+# This can't be done in register() unfortunately
+def setup_asset_library(prefs):
+	blender_db = os.environ.get("SHITGRID_BLEND_DB")
+	if not blender_db:
+		return
+
+	build_folder = os.path.join(blender_db, "build")
+	lib_name = "Shitgrid Builds"
+
+	# Don't add the same library twice
+	for lib in prefs.filepaths.asset_libraries:
+		if lib.name == lib_name:
+			return
+
+	# Add and rename library
+	bpy.ops.preferences.asset_library_add(directory=build_folder)
+	sg_lib = prefs.filepaths.asset_libraries[-1]
+	sg_lib.name = lib_name
 
 class Properties(bpy.types.PropertyGroup):
 	def get_layer(self):
-		return bpy.context.preferences.addons[__name__].preferences.layer
+		prefs = bpy.context.preferences
+		setup_asset_library(prefs)
+		return prefs.addons[__name__].preferences.layer
 
 	def set_layer(self, value):
-		bpy.context.preferences.addons[__name__].preferences.layer = value
+		prefs = bpy.context.preferences
+		prefs.addons[__name__].preferences.layer = value
 
 	# Publish properties
 	layer: bpy.props.EnumProperty(
@@ -37,6 +60,28 @@ class Properties(bpy.types.PropertyGroup):
 		set=set_layer
 	)
 	publish_asset: bpy.props.StringProperty(name="Asset Name")
+
+# TODO: MAKE SOURCE_FILE A SHARED PYTHON MODULE
+# ========================================================================
+def add_link(block, asset, layer, version):
+	# Only add, don't override
+	if block.get("sg_asset"):
+		return
+	block["sg_asset"] = asset
+	block["sg_layer"] = layer
+	block["sg_version"] = version
+# ========================================================================
+
+# Sub-object data blocks which should trigger a version update when changed
+update_whitelist = {
+	"models": [
+		"fonts", "lattices", "metaballs", "meshes", "volumes", "curves",
+		"grease_pencils", "hair_curves", "paint_curves", "particles", "pointclouds"
+	],
+	"materials": [
+		"materials", "textures", "images", "brushes", "palettes", "linestyles"
+	]
+}
 
 class Publish_Operator(bpy.types.Operator):
 	"""Save and increment the version of the above assets"""
@@ -61,13 +106,13 @@ class Publish_Operator(bpy.types.Operator):
 			return {"CANCELLED"}
 
 		# Make sure to set the SHITGRID_BLEND_DB env var or this will break!
-		asset_folder = os.path.join(blender_db, "wip", props.publish_asset)
-		if not os.path.exists(asset_folder):
+		wip_folder = os.path.join(blender_db, "wip", props.publish_asset)
+		if not os.path.exists(wip_folder):
 			self.report({"ERROR"}, "Asset {} doesn't exist yet! Add it on the website.".format(props.publish_asset))
 			return {"CANCELLED"}
 
 		# Structure is "master/wip/asset/layer/asset_layer_v001.blend" for now
-		layer_folder = os.path.join(asset_folder, props.layer)
+		layer_folder = os.path.join(wip_folder, props.layer)
 		if not os.path.exists(layer_folder):
 			os.mkdir(layer_folder)
 
@@ -76,9 +121,20 @@ class Publish_Operator(bpy.types.Operator):
 
 		# Name is "asset_layer_v001.blend" for now
 		file_name = "{}_{}_v{:03d}.blend".format(props.publish_asset, props.layer, version)
+		path = os.path.join(layer_folder, file_name)
+
+		# Add custom data to determine asset link where not already linked
+		root = context.scene.collection
+		for col in root.children_recursive:
+			add_link(col, props.publish_asset, props.layer, version)
+		for obj in root.all_objects:
+			add_link(obj, props.publish_asset, props.layer, version)
+		for data_type in update_whitelist.get(props.layer, []):
+			for block in getattr(bpy.data, data_type):
+				add_link(block, props.publish_asset, props.layer, version)
 
 		# Save a copy. This copy should never be touched!
-		bpy.ops.wm.save_as_mainfile(filepath=os.path.join(layer_folder, file_name), check_existing=True, copy=True)
+		bpy.ops.wm.save_as_mainfile(filepath=path, check_existing=True, copy=True)
 
 		# Would be nice to add a popup box for this
 		success_msg = "Published {} {} version {}!".format(props.publish_asset, props.layer, version)
