@@ -7,11 +7,15 @@ if not blender_db:
 	raise OSError("Missing environment variable SHITGRID_BLEND_DB!")
 
 class Source_File:
+	# Path: String - Full path to layer file
+	# Name: String - Asset name
+	# Layer: String - Layer name
+	# Version: UInt - Layer version (starts at 1)
 	def __init__(self, path, name, layer, version):
-		self.path = path 			# String: Full path to layer file
-		self.name = name 			# String: Asset name
-		self.layer = layer 			# String: Layer
-		self.version = version 		# UInt: Layer version (starts at 1)
+		self.path = path
+		self.name = name
+		self.layer = layer
+		self.version = version
 
 def load_scene(path):
 	with bpy.data.libraries.load(path, link=False) as (their_data, our_data):
@@ -84,13 +88,13 @@ class Similarity_Data:
 			return name
 
 	def __count_data(self, obj):
-		# Only supported on objects
+		# Only supported on objects for now
 		if type(obj) != bpy.types.Object:
 			return
-		obj_type = obj.type
-		if obj_type == "MESH":
+		# TODO: Support more types
+		if obj.type == "MESH":
 			return [len(obj.data.vertices), len(obj.data.edges), len(obj.data.polygons)]
-		elif obj_type == "CURVE":
+		elif obj.type == "CURVE":
 			return [len(obj.data.splines)]
 
 	# Compute difference exponentially, just for fun
