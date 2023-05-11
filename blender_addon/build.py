@@ -1,28 +1,15 @@
 import bpy, os, argparse
+from difflib import SequenceMatcher as SM
 
 blender_db = os.environ.get("SHITGRID_BLEND_DB")
 if not blender_db:
 	raise OSError("Missing environment variable SHITGRID_BLEND_DB!")
 
-# ==============================================================================
-# Kitsu uses Blender names to represent links. I want to avoid this.
-# Blender names must be unique, so Blender often renames things without consent.
-# Instead of names, I used custom data to represent links.
-# This avoids naming issues, but puts more emphasis on hierarchy.
-# ==============================================================================
-def add_link(block, asset, layer, version):
-	# Only add, don't override
-	if block.get("sg_asset"):
-		return
-	block["sg_asset"] = asset
-	block["sg_layer"] = layer
-	block["sg_version"] = version
-
 class Source_File:
 	def __init__(self, path, name, layer, version):
 		self.path = path 		# String: Full path to layer Blend file
 		self.name = name 		# String: Asset name
-		self.layer = layer 		# String: Task layer
+		self.layer = layer 		# String: Layer
 		self.version = version 	# UInt: Layer version (starts at 1)
 
 def load_scene(path):
@@ -41,33 +28,54 @@ def unload_scene(scene):
 def kill_orphans():
 	bpy.data.orphans_purge(do_local_ids=True, do_linked_ids=True, do_recursive=True)
 
-# =========================================================
-# Ideally children have a shared root collection:
-# Human_Emily.blend:
-# -> "Emily"
-#    -> "Head"
-#    -> "Body"
-#    -> "Feet"
-# However they could be loose:
-# Human_Joe.blend:
-# -> "Head"
-# -> "Body"
-# -> "Feet"
-# Both cases are handled by find_roots:
-# ["Emily"] for Emily, ["Head", "Body", "Feet"] for Joe
-# =========================================================
-class Transfer_Map:
-	def __find_roots(self, parent, roots):
-		for col in parent.children:
-			if col.get("sg_asset") == self.file.name:
-				roots.append((col, col.all_objects))
-			else:
-				self.__find_roots(col, roots)
-		for obj in parent.objects:
-			if obj.get("sg_asset") == self.file.name:
-				roots.append((obj, obj.children_recursive))
+# =====================================================================
+# What the hell does this code do? Great question :)
 
-	# If comparing names, strip .001 suffix
+# The idea is a scene consists of data blocks tagged with custom data
+# These exist in a tree hierarchy of parent-child relationships
+# We need to respect the hierarchy when updating data
+# To achieve this, this code tries to find "roots"
+
+# "Roots" are the topmost collections/objects belonging to a tag
+
+# Assets may have a single root:
+# Zoe.blend
+# -> Zoe_Collection (ROOT, sg_asset="zoe")
+#   -> Head_Object (sg_asset="zoe")
+#   -> Body_Object (sg_asset="zoe")
+#   -> Feet_Object (sg_asset="zoe")
+
+# Or multiple roots:
+# Tom.blend
+# -> Head_Object (ROOT, sg_asset="tom")
+# -> Body_Object (ROOT, sg_asset="tom")
+# -> Feet_Object (ROOT, sg_asset="tom")
+
+# Roots can exist inside eachother:
+# Scene.Blend
+# -> Shot_01 (ROOT, sg_asset="shot1")
+#   -> Zoe_Collection (ROOT, sg_asset="zoe")
+#   -> Head_Object (ROOT, sg_asset="tom")
+#   -> Body_Object (ROOT, sg_asset="tom")
+#   -> Feet_Object (ROOT, sg_asset="tom")
+
+# I wanted to keep this super flexible, so I went insane!
+# To find roots, I use a depth-first search for matching sg_asset tags
+# Untagged children in our roots are considered part of us
+
+# Next, I use a simple probability model to find similar data blocks
+# This makes it super flexible to structural and naming changes
+# It has O(n^2) complexity and is huge overkill for most situations
+# Luckily it's pretty fast so no one will notice :)
+# =====================================================================
+class Similarity_Data:
+	def __init__(self, data, depth):
+		self.name = self.__clean_name(data.name)
+		self.data_count = self.__count_data(data)
+		self.data = data
+		self.depth = depth
+
+	# When comparing names, strip .001 suffix
 	def __clean_name(self, name):
 		dot_index = name.rfind(".")
 		if dot_index >= 0:
@@ -75,29 +83,92 @@ class Transfer_Map:
 		else:
 			return name
 
-	def __find_matches(self):
-		our_roots = []
-		their_roots = []
-		self.__find_roots(bpy.context.scene.collection, our_roots)
-		self.__find_roots(self.scene.collection, their_roots)
+	def __count_data(self, obj):
+		# Only supported on objects
+		if type(obj) != bpy.types.Object:
+			return
+		obj_type = obj.type
+		if obj_type == "MESH":
+			return [
+				len(obj.data.vertices),
+				len(obj.data.edges),
+				len(obj.data.polygons)
+			]
+		elif obj_type == "CURVE":
+			return [
+				len(obj.data.splines)
+			]
 
-		# For now, only support exact matches
-		if len(our_roots) != len(their_roots):
-			raise Exception("NOT EXACT MATCH! (Root length)")
+	# Compute difference exponentially, just for fun
+	def __pow_diff(self, power, a, b):
+		return pow(power, -abs(a - b))
+
+	def compare(self, them):
+		# Name similarity
+		score = SM(None, self.name, them.name).quick_ratio()
+		# Tree depth similarity
+		score += self.__pow_diff(2.0, self.depth, them.depth) * 2
+		# Data similarity
+		if self.data_count and them.data_count:
+			for a, b in zip(self.data_count, them.data_count):
+				score += self.__pow_diff(1.1, a, b)
+		return score
+
+class Transfer_Map:
+	def __traverse_trees(self, data, col, depth=0, in_root=False):
+		for child in col.children:
+			# Prevent iterations influencing eachother
+			depth_edit = depth
+			in_root_edit = in_root
+			child_name = child.get("sg_asset")
+			# Assume untagged children in our roots are part of us
+			if child_name:
+				# Only change root state when we hit a different asset
+				in_root_edit = child_name == self.file.name
+			if in_root_edit:
+				# Don't include collections for now
+				# data["COLLECTION"].append(Similarity_Data(child, depth_edit))
+				depth_edit += 1
+			else:
+				# Depth is relative to our roots
+				depth_edit = 0
+			# Continue depth-first search
+			self.__traverse_trees(data, child, depth_edit, in_root_edit)
+		# Same as above but for objects
+		for obj in col.objects:
+			in_root_edit = in_root
+			obj_name = obj.get("sg_asset")
+			if obj_name:
+				in_root_edit = obj_name == self.file.name
+			if in_root_edit:
+				# Categorize by data type
+				if not obj.type in data:
+					data[obj.type] = []
+				data[obj.type].append(Similarity_Data(obj, depth))
+
+	def __find_matches(self):
+		our_data = {}
+		their_data = {}
+		self.__traverse_trees(our_data, bpy.context.scene.collection)
+		self.__traverse_trees(their_data, self.scene.collection)
 
 		matches = {}
-		for root_us, root_them in zip(our_roots, their_roots):
-			if len(root_us) != len(root_them):
-				raise Exception("NOT EXACT MATCH! (Root child length)")
-
-			for child_us, child_them in zip(root_us[1], root_them[1]):
-				if child_us.type != child_them.type:
-					raise Exception("NOT EXACT MATCH! (Child type)")
-				#if self.__clean_name(child_us.name) != self.__clean_name(child_them.name):
-					#raise Exception("NOT EXACT MATCH! (Child name)")
-
-				matches[child_us] = child_them
-
+		for category in our_data:
+			for us in our_data[category]:
+				best_score = 0
+				best_item = None
+				if category in their_data:
+					# We love O(n^2) complexity
+					for them in their_data[category]:
+						score = us.compare(them)
+						if score > best_score:
+							best_score = score
+							best_item = them
+				if best_score >= 1:
+					print("Matched {} with {} ({} score)".format(us.data.name, best_item.data.name, best_score))
+					matches[us.data] = best_item.data
+				else:
+					print("ERROR: Could not match {}!".format(us.data.name))
 		return matches
 
 	def __init__(self, file):
@@ -208,17 +279,6 @@ class Layer_Materials:
 						for loop in us.data.loops:
 							vcol_to.data[loop.index].color = vcol_from.data[loop.index].color
 
-#class Layer_Lights:
-	# ========================================================================
-	# LIGHTS LAYER
-	# Adds, updates or removes lights within the scene to match file
-	# ========================================================================
-	#@staticmethod
-	#def process(file):
-		# scene = load_scene(file.path)
-		# TODO
-		# unload_scene(scene)
-
 class Asset_Builder:
 	def __init__(self, asset):
 		self.asset = asset
@@ -237,13 +297,7 @@ class Asset_Builder:
 		path = versions[latest - 1]
 		return Source_File(path, self.asset, layer, latest)
 
-	def asset_library_build(self):
-		# Load base geometry from modelling
-		Layer_Base.process(self.__get_latest("models"))
-
-		# Apply materials from surfacing
-		Layer_Materials.process(self.__get_latest("materials"))
-
+	def __mark_asset(self):
 		# Ensure a root collection for Asset Browser listing
 		root = None
 		base = bpy.context.scene.collection
@@ -264,6 +318,15 @@ class Asset_Builder:
 			base.children.link(root)
 		root.asset_mark()
 		root.asset_generate_preview()
+
+	def asset_library_build(self):
+		# Load base geometry from modelling
+		Layer_Base.process(self.__get_latest("models"))
+
+		# Apply materials from surfacing
+		Layer_Materials.process(self.__get_latest("materials"))
+
+		#self.__mark_asset()
 
 	def save(self):
 		# Structure is "master/build/asset/asset_v001.blend" for now

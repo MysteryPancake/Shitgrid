@@ -11,10 +11,10 @@ bl_info = {
 	"category": "ALA",
 }
 
-# Store task layer as an addon pref so it stays between restarts
+# Store layer as an addon pref so it stays between restarts
 class Preferences(bpy.types.AddonPreferences):
 	bl_idname = __name__
-	layer: bpy.props.IntProperty(name="Task Layer", default=0)
+	layer: bpy.props.IntProperty(name="Layer", default=0)
 
 layer_items = [
 	("models", "Models", ""),
@@ -54,23 +54,29 @@ class Properties(bpy.types.PropertyGroup):
 
 	# Publish properties
 	layer: bpy.props.EnumProperty(
-		name="Task Layer",
+		name="Layer",
 		items=layer_items,
 		get=get_layer,
 		set=set_layer
 	)
 	publish_asset: bpy.props.StringProperty(name="Asset Name")
 
-# TODO: MAKE SOURCE_FILE A SHARED PYTHON MODULE
-# ========================================================================
-def add_link(block, asset, layer, version):
-	# Only add, don't override
-	if block.get("sg_asset"):
-		return
-	block["sg_asset"] = asset
-	block["sg_layer"] = layer
-	block["sg_version"] = version
-# ========================================================================
+# ==============================================================================
+# Kitsu uses Blender names to represent links. I want to avoid this.
+# Blender names must be unique, so Blender often renames things without consent.
+# Instead of names, I used custom data to represent links.
+# This avoids naming issues, but puts more emphasis on hierarchy.
+# ==============================================================================
+def tag_data(data, asset, layer, version):
+	name = data.get("sg_asset")
+	if not name:
+		# New data, set all properties
+		data["sg_asset"] = asset
+		data["sg_layer"] = layer
+		data["sg_version"] = version
+	elif name == asset and data.get("sg_layer") == layer:
+		# Updated data, change version
+		data["sg_version"] = version
 
 # Sub-object data blocks which should trigger a version update when changed
 update_whitelist = {
@@ -98,7 +104,7 @@ class Publish_Operator(bpy.types.Operator):
 			return {"CANCELLED"}
 
 		if not props.layer:
-			self.report({"ERROR_INVALID_INPUT"}, "Please select a task layer!")
+			self.report({"ERROR_INVALID_INPUT"}, "Please select a layer!")
 			return {"CANCELLED"}
 
 		if not props.publish_asset:
@@ -123,15 +129,16 @@ class Publish_Operator(bpy.types.Operator):
 		file_name = "{}_{}_v{:03d}.blend".format(props.publish_asset, props.layer, version)
 		path = os.path.join(layer_folder, file_name)
 
-		# Add custom data to determine asset link where not already linked
+		# Use custom data to associate data with a specific version
 		root = context.scene.collection
 		for col in root.children_recursive:
-			add_link(col, props.publish_asset, props.layer, version)
+			tag_data(col, props.publish_asset, props.layer, version)
 		for obj in root.all_objects:
-			add_link(obj, props.publish_asset, props.layer, version)
-		for data_type in update_whitelist.get(props.layer, []):
-			for block in getattr(bpy.data, data_type):
-				add_link(block, props.publish_asset, props.layer, version)
+			tag_data(obj, props.publish_asset, props.layer, version)
+		if props.layer in update_whitelist:
+			for data_type in update_whitelist[props.layer]:
+				for block in getattr(bpy.data, data_type):
+					tag_data(block, props.publish_asset, props.layer, version)
 
 		# Save a copy. This copy should never be touched!
 		bpy.ops.wm.save_as_mainfile(filepath=path, check_existing=True, copy=True)
@@ -152,8 +159,8 @@ class Publish_Panel(bpy.types.Panel):
 	def draw(self, context):
 		layout = self.layout
 		scn = context.scene
-		layout.prop(scn.sg_props, "layer")
 		layout.prop(scn.sg_props, "publish_asset")
+		layout.prop(scn.sg_props, "layer")
 		layout.operator(Publish_Operator.bl_idname)
 
 # Dump all classes to register in here
