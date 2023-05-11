@@ -305,8 +305,9 @@ class Asset_Builder:
 	def __get_latest(self, layer):
 		versions = self.__get_versions(layer)
 		latest = len(versions)
-		path = versions[latest - 1]
-		return Source_File(path, self.asset, layer, latest)
+		if latest <= 0:
+			raise FileNotFoundError("Missing {} file!".format(layer))
+		return Source_File(versions[latest - 1], self.asset, layer, latest)
 
 	def __mark_asset(self):
 		# Ensure a root collection for Asset Browser listing
