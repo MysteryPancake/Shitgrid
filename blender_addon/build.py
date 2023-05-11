@@ -8,10 +8,10 @@ if not blender_db:
 
 class Source_File:
 	def __init__(self, path, name, layer, version):
-		self.path = path 		# String: Full path to layer Blend file
-		self.name = name 		# String: Asset name
-		self.layer = layer 		# String: Layer
-		self.version = version 	# UInt: Layer version (starts at 1)
+		self.path = path 			# String: Full path to layer file
+		self.name = name 			# String: Asset name
+		self.layer = layer 			# String: Layer
+		self.version = version 		# UInt: Layer version (starts at 1)
 
 def load_scene(path):
 	with bpy.data.libraries.load(path, link=False) as (their_data, our_data):
