@@ -117,9 +117,10 @@ class Similarity_Data:
 class Transfer_Map:
 	def __traverse_trees(self, data, col, depth=0, in_root=False):
 		for child in col.children:
-			# Prevent iterations influencing eachother
+			# Prevent loops influencing eachother
 			depth_edit = depth
 			in_root_edit = in_root
+
 			child_name = child.get("sg_asset")
 			# Assume untagged children in our roots are part of us
 			if child_name:
@@ -132,8 +133,9 @@ class Transfer_Map:
 			else:
 				# Depth is relative to our roots
 				depth_edit = 0
-			# Continue depth-first search
+			# Depth-first search
 			self.__traverse_trees(data, child, depth_edit, in_root_edit)
+
 		# Same as above but for objects
 		for obj in col.objects:
 			in_root_edit = in_root
@@ -141,7 +143,6 @@ class Transfer_Map:
 			if obj_name:
 				in_root_edit = obj_name == self.file.name
 			if in_root_edit:
-				# Categorize by data type
 				if not obj.type in data:
 					data[obj.type] = []
 				data[obj.type].append(Similarity_Data(obj, depth))
@@ -155,20 +156,25 @@ class Transfer_Map:
 		matches = {}
 		for category in our_data:
 			for us in our_data[category]:
+				if not category in their_data:
+					print("ERROR: Missing category " + category)
+					continue
+				
+				# We love O(n^2) complexity
 				best_score = 0
 				best_item = None
-				if category in their_data:
-					# We love O(n^2) complexity
-					for them in their_data[category]:
-						score = us.compare(them)
-						if score > best_score:
-							best_score = score
-							best_item = them
+				for them in their_data[category]:
+					score = us.compare(them)
+					if score > best_score:
+						best_score = score
+						best_item = them
+
 				if best_score >= 1:
 					print("Matched {} with {} ({} score)".format(us.data.name, best_item.data.name, best_score))
 					matches[us.data] = best_item.data
 				else:
-					print("ERROR: Could not match {}!".format(us.data.name))
+					print("ERROR: Could not match " + us.data.name)
+
 		return matches
 
 	def __init__(self, file):
@@ -326,7 +332,8 @@ class Asset_Builder:
 		# Apply materials from surfacing
 		Layer_Materials.process(self.__get_latest("materials"))
 
-		#self.__mark_asset()
+		# Prepare for asset browser
+		self.__mark_asset()
 
 	def save(self):
 		# Structure is "master/build/asset/asset_v001.blend" for now
