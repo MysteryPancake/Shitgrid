@@ -59,14 +59,13 @@ def kill_orphans():
 #   -> Body_Object (ROOT, sg_asset="tom")
 #   -> Feet_Object (ROOT, sg_asset="tom")
 
-# I wanted to keep this super flexible, so I went insane!
-# To find roots, I use a depth-first search for matching sg_asset tags
+# I wanted to keep this flexible, so I went crazy
+# To find roots, Transfer_Map searches depth-first for matching tags
 # Untagged children in our roots are considered part of us
 
-# Next, I use a simple probability model to find similar data blocks
-# This makes it super flexible to structural and naming changes
-# It has O(n^2) complexity and is huge overkill for most situations
-# Luckily it's pretty fast so no one will notice :)
+# Next, Similarity_Data finds similar data blocks with matching tags
+# This makes it flexible to structural and naming changes
+# Obviously this is overkill for most situations, but why not :)
 # =====================================================================
 class Similarity_Data:
 	def __init__(self, data, depth):
@@ -89,15 +88,9 @@ class Similarity_Data:
 			return
 		obj_type = obj.type
 		if obj_type == "MESH":
-			return [
-				len(obj.data.vertices),
-				len(obj.data.edges),
-				len(obj.data.polygons)
-			]
+			return [len(obj.data.vertices), len(obj.data.edges), len(obj.data.polygons)]
 		elif obj_type == "CURVE":
-			return [
-				len(obj.data.splines)
-			]
+			return [len(obj.data.splines)]
 
 	# Compute difference exponentially, just for fun
 	def __pow_diff(self, power, a, b):
