@@ -30,14 +30,14 @@ def kill_orphans():
 	bpy.data.orphans_purge(do_local_ids=True, do_linked_ids=True, do_recursive=True)
 
 # =====================================================================
-# What the hell does this code do? Great question :)
+# What the hell does this code do? Great question!
 
 # The idea is a scene consists of data blocks tagged with custom data
 # These exist in a tree hierarchy of parent-child relationships
 # We need to respect the hierarchy when updating data
-# To achieve this, this code tries to find "roots"
+# To achieve this, try to find roots and reconstruct from there
 
-# "Roots" are the topmost collections/objects belonging to a tag
+# Roots are the topmost collections/objects belonging to a tag
 
 # Assets may have a single root:
 # Zoe.blend
@@ -60,13 +60,13 @@ def kill_orphans():
 #   -> Body_Object (ROOT, sg_asset="tom")
 #   -> Feet_Object (ROOT, sg_asset="tom")
 
-# I wanted to keep this flexible, so I went crazy
+# I wanted to keep this flexible, so roots can be moved and renamed
 # To find roots, Transfer_Map depth-first searches for matching tags
 # Untagged children in our roots are considered part of us
 
 # Next, Similarity_Data finds similar data blocks with matching tags
 # This makes it flexible to structural and naming changes
-# Obviously this is overkill for most situations, but why not :)
+# This is huge overkill for most situations, but why not :)
 # =====================================================================
 class Similarity_Data:
 	def __init__(self, data, depth):

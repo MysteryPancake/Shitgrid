@@ -20,7 +20,6 @@ layer_items = [
 	("models", "Models", ""),
 	("materials", "Materials / UVs", ""),
 	("rigs", "Rigs", ""),
-	("lights", "Lights", ""),
 ]
 
 # This can't be done in register() unfortunately
