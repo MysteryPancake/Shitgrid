@@ -1,4 +1,5 @@
-import bpy, os, argparse
+import bpy, os, argparse, getpass
+from uuid import uuid4
 from difflib import SequenceMatcher as SM
 
 blender_db = os.environ.get("SHITGRID_BLEND_DB")
@@ -60,7 +61,7 @@ def kill_orphans():
 #   -> Feet_Object (ROOT, sg_asset="tom")
 
 # I wanted to keep this flexible, so I went crazy
-# To find roots, Transfer_Map searches depth-first for matching tags
+# To find roots, Transfer_Map depth-first searches for matching tags
 # Untagged children in our roots are considered part of us
 
 # Next, Similarity_Data finds similar data blocks with matching tags
@@ -166,7 +167,7 @@ class Transfer_Map:
 					print("Matched {} with {} ({} score)".format(us.data.name, best_item.data.name, best_score))
 					matches[us.data] = best_item.data
 				else:
-					print("ERROR: Could not match " + us.data.name)
+					print("ERROR: Could not match {} ({} score)".format(us.data.name, best_score))
 
 		return matches
 
@@ -175,11 +176,17 @@ class Transfer_Map:
 
 	def __enter__(self):
 		self.scene = load_scene(self.file.path)
+		print("========================================================")
+		print("Transferring {}...".format(self.file.path))
+		print("========================================================")
 		return self.__find_matches()
 
 	def __exit__(self, exc_type, exc_value, exc_traceback):
 		unload_scene(self.scene)
 		kill_orphans()
+		print("========================================================")
+		print("Finished transferring {}".format(self.file.path))
+		print("========================================================")
 
 class Layer_Base:
 	# ========================================================================
@@ -281,6 +288,7 @@ class Layer_Materials:
 class Asset_Builder:
 	def __init__(self, asset):
 		self.asset = asset
+		self.uuid = str(uuid4())
 
 	def __get_versions(self, layer):
 		# Structure is "master/wip/asset/layer/asset_layer_v001.blend" for now
@@ -300,6 +308,7 @@ class Asset_Builder:
 		# Ensure a root collection for Asset Browser listing
 		root = None
 		base = bpy.context.scene.collection
+
 		if len(base.objects) == 0 and len(base.children) == 1:
 			# If there's already a root collection, don't add another
 			root = base.children[0]
@@ -315,8 +324,13 @@ class Asset_Builder:
 				base.objects.unlink(obj)
 			# Add root collection to scene
 			base.children.link(root)
+
 		root.asset_mark()
 		root.asset_generate_preview()
+
+		asset_data = root.asset_data
+		asset_data.catalog_id = self.uuid
+		asset_data.author = getpass.getuser()
 
 	def asset_library_build(self):
 		# Load base geometry from modelling
@@ -328,18 +342,33 @@ class Asset_Builder:
 		# Prepare for asset browser
 		self.__mark_asset()
 
-	def save(self):
+	def __update_catalog(self, version):
+		# Update catalog manually
+		catalog_path = os.path.join(blender_db, "build", "blender_assets.cats.txt")
+		catalog_exists = os.path.isfile(catalog_path)
+		with open(catalog_path, "a") as catalog:
+			if not catalog_exists:
+				# Write default content, requires a folder UUID for some reason
+				catalog.write("VERSION 1\n\n{}:Builds:Builds".format(str(uuid4())))
+			# Structure is "Builds/Asset/Asset v001" for now
+			name = self.asset.capitalize()
+			catalog.write("\n{}:Builds/{}:{} v{:03d}".format(self.uuid, name, name, version))
+
+	def save(self, write_catalog=False):
 		# Structure is "master/build/asset/asset_v001.blend" for now
-		build_folder = os.path.join(blender_db, "build", self.asset)
-		if not os.path.exists(build_folder):
-			os.makedirs(build_folder)
+		asset_folder = os.path.join(blender_db, "build", self.asset)
+		if not os.path.exists(asset_folder):
+			os.makedirs(asset_folder)
 
 		# Up version number based on file index in subfolder
-		version = len([f for f in os.listdir(build_folder) if f.endswith(".blend")]) + 1
+		version = len([f for f in os.listdir(asset_folder) if f.endswith(".blend")]) + 1
 
 		# Name is "asset_v001.blend" for now
 		file_name = "{}_v{:03d}.blend".format(self.asset, version)
-		file_path = os.path.join(build_folder, file_name)
+		file_path = os.path.join(asset_folder, file_name)
+
+		if write_catalog:
+			self.__update_catalog(version)
 
 		bpy.ops.wm.save_mainfile(filepath=file_path)
 		print("Successfully built {}".format(file_path))
@@ -362,4 +391,4 @@ if __name__ == "__main__":
 	builder = Asset_Builder(args.asset)
 	#builder = Asset_Builder("debug")
 	builder.asset_library_build()
-	builder.save()
+	builder.save(write_catalog=True)
