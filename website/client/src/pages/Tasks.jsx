@@ -20,7 +20,7 @@ class Tasks extends React.Component {
 	}
 
 	componentDidMount() {
-		fetch(`${process.env.REACT_APP_SHITGRID_SERVER}:${process.env.REACT_APP_SHITGRID_PORT}/tasks/get`)
+		fetch(`${process.env.REACT_APP_SG_SERVER}:${process.env.REACT_APP_SG_PORT}/tasks/get`)
 			.then(this.validate).catch(this.validate);
 	}
 

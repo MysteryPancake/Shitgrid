@@ -25,7 +25,7 @@ layer_items = [
 
 # Show stuff in the "build" folder in the Asset Library
 def setup_asset_library() -> None:
-	blender_db = os.environ.get("SHITGRID_BLEND_DB")
+	blender_db = os.environ.get("SG_BLEND_DB")
 	if not blender_db:
 		return
 
@@ -93,10 +93,10 @@ class Publish_Operator(bpy.types.Operator):
 
 	def execute(self, context):
 		props = context.scene.sg_props
-		blender_db = os.environ.get("SHITGRID_BLEND_DB")
+		blender_db = os.environ.get("SG_BLEND_DB")
 
 		if not blender_db:
-			self.report({"ERROR"}, "Missing environment variable SHITGRID_BLEND_DB!")
+			self.report({"ERROR"}, "Missing environment variable SG_BLEND_DB!")
 			return {"CANCELLED"}
 
 		if not props.layer:
@@ -209,10 +209,10 @@ class Fetch_Operator(bpy.types.Operator):
 
 	def execute(self, context):
 		props = context.scene.sg_props
-		blender_db = os.environ.get("SHITGRID_BLEND_DB")
+		blender_db = os.environ.get("SG_BLEND_DB")
 
 		if not blender_db:
-			self.report({"ERROR"}, "Missing environment variable SHITGRID_BLEND_DB!")
+			self.report({"ERROR"}, "Missing environment variable SG_BLEND_DB!")
 			return {"CANCELLED"}
 
 		if not props.fetch_asset:

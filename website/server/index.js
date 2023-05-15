@@ -5,27 +5,27 @@ const app = express();
 const taskRouter = require('./taskRouter.js');
 const assetRouter = require('./assetRouter.js');
 
-const PORT = process.env.REACT_APP_SHITGRID_PORT;
+const PORT = process.env.REACT_APP_SG_PORT;
 if (!PORT) {
-	console.error("Missing environment variable REACT_APP_SHITGRID_PORT!");
+	console.error("Missing environment variable REACT_APP_SG_PORT!");
 	return;
 }
 
 // Main folder for website database files, using JSON for the moment
-app.locals.WEB_DB = process.env.SHITGRID_WEB_DB;
+app.locals.WEB_DB = process.env.SG_WEB_DB;
 if (app.locals.WEB_DB) {
 	console.log(`Website database set to ${app.locals.WEB_DB}`);
 } else {
-	console.error("Missing environment variable SHITGRID_WEB_DB!");
+	console.error("Missing environment variable SG_WEB_DB!");
 	return;
 }
 
 // Contains subfolders for each department, "modelling", "surfacing", etc
-app.locals.BLEND_DB = process.env.SHITGRID_BLEND_DB;
+app.locals.BLEND_DB = process.env.SG_BLEND_DB;
 if (app.locals.BLEND_DB) {
 	console.log(`Blender database set to ${app.locals.BLEND_DB}`);
 } else {
-	console.error("Missing environment variable SHITGRID_BLEND_DB!");
+	console.error("Missing environment variable SG_BLEND_DB!");
 	return;
 }
 

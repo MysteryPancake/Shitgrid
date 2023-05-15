@@ -42,13 +42,13 @@ The Blender addon is written in Python.
 
 ### Website
 
-- Set `SHITGRID_WEB_DB` to the folder you want the JSON files to be stored, for example `C:/web_db`
-- Set `REACT_APP_SHITGRID_SERVER` to whatever URL the backend is hosted on, for example `http://localhost`
-- Set `REACT_APP_SHITGRID_PORT` to whatever port the backend is hosted on, for example `5000`
+- Set `SG_WEB_DB` to the folder you want the JSON files to be stored, for example `C:/web_db`
+- Set `REACT_APP_SG_SERVER` to whatever URL the backend is hosted on, for example `http://localhost`
+- Set `REACT_APP_SG_PORT` to whatever port the backend is hosted on, for example `5000`
 
 ### Blender Addon
 
-- Set `SHITGRID_BLEND_DB` to the folder you want Blender files to be saved, for example `C:/blender_db`
+- Set `SG_BLEND_DB` to the folder you want Blender files to be saved, for example `C:/blender_db`
 
 ## Installation
 

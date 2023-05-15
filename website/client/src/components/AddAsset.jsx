@@ -34,7 +34,7 @@ class AddAsset extends React.Component {
 
 	submit = (e) => {
 		e.preventDefault();
-		fetch(`${process.env.REACT_APP_SHITGRID_SERVER}:${process.env.REACT_APP_SHITGRID_PORT}/assets/add`, {
+		fetch(`${process.env.REACT_APP_SG_SERVER}:${process.env.REACT_APP_SG_PORT}/assets/add`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({

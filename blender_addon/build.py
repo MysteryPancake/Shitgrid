@@ -2,9 +2,9 @@ import bpy, os, argparse, getpass
 from uuid import uuid4
 from difflib import SequenceMatcher as SM
 
-blender_db = os.environ.get("SHITGRID_BLEND_DB")
+blender_db = os.environ.get("SG_BLEND_DB")
 if not blender_db:
-	raise OSError("Missing environment variable SHITGRID_BLEND_DB!")
+	raise OSError("Missing environment variable SG_BLEND_DB!")
 
 # Utility struct for storing stuff relating to an asset layer
 class Source_File:
