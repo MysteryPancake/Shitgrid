@@ -31,7 +31,7 @@ class LayerBase:
 			for _ in range(len(obj.material_slots)):
 				bpy.ops.object.material_slot_remove({"object": obj})
 
-		# Transfer top level of theirs to us, children copy automatically
+		# Transfer top level collections and objects, children copy automatically
 		for obj in scene.collection.objects:
 			bpy.context.scene.collection.objects.link(obj)
 		for col in scene.collection.children:
