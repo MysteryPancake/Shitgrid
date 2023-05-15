@@ -41,12 +41,17 @@ def kill_orphans() -> None:
 # =====================================================================
 # What the hell does this code do? Great question!
 
-# The idea is a scene consists of data blocks tagged with custom data
-# These exist in a tree hierarchy of parent-child relationships
-# We need to respect the hierarchy when updating data
-# To achieve this, try to find roots and reconstruct from there
+# Kitsu uses Blender names to figure out asset links. I wanted to avoid this.
+# Blender names must be unique, so Blender often renames things without consent.
+# Instead of names, I currently use custom data to represent links.
+# This avoids naming issues, but puts more emphasis on hierarchy.
 
-# Roots are the topmost collections/objects belonging to a tag
+# A scene consists of data blocks tagged with custom data.
+# These exist in a tree hierarchy of parent-child relationships.
+# We need to respect this hierarchy when updating data.
+# To achieve this, try to find roots and reconstruct from there.
+
+# Roots are the topmost collections/objects belonging to a tag.
 
 # Assets may have a single root:
 # Zoe.blend
@@ -69,12 +74,12 @@ def kill_orphans() -> None:
 #   -> Body_Object (ROOT, sg_asset="tom")
 #   -> Feet_Object (ROOT, sg_asset="tom")
 
-# I wanted to keep this flexible, so roots can be moved and renamed
-# To find roots, Transfer_Map depth-first searches for matching tags
-# Untagged children in our roots are considered part of us
+# I wanted to keep this flexible, so roots can be moved and renamed.
+# To find roots, Transfer_Map depth-first searches for matching tags.
+# Untagged children in our roots are considered part of us.
 
-# Next, Similarity_Data finds similar data blocks with matching tags
-# This makes it flexible to structural and naming changes
+# Next, Similarity_Data finds similar data blocks with matching tags.
+# This makes it flexible to structural and naming changes.
 # This is huge overkill for most situations, but why not :)
 # =====================================================================
 class Similarity_Data:

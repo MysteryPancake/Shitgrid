@@ -23,7 +23,7 @@ layer_items = [
 	("rigs", "Rigs", ""),
 ]
 
-# In case the Asset Library gets used, show stuff in the build folder
+# Show stuff in the "build" folder in the Asset Library
 def setup_asset_library() -> None:
 	blender_db = os.environ.get("SHITGRID_BLEND_DB")
 	if not blender_db:
@@ -62,12 +62,7 @@ class Properties(bpy.types.PropertyGroup):
 	# DEV ONLY, REMOVE IN FINAL BUILD!
 	make_folder: bpy.props.BoolProperty(name="(DEV) Make asset if it doesn't exist")
 
-# ==============================================================================
-# Kitsu uses Blender names to represent links. I want to avoid this.
-# Blender names must be unique, so Blender often renames things without consent.
-# Instead of names, I currently use custom data to represent links.
-# This avoids naming issues, but puts more emphasis on hierarchy.
-# ==============================================================================
+# Tags a data block with custom data used to link it with an asset, layer and version
 def tag_data(data, name: str, layer: str, version: int) -> None:
 	old_name = data.get("sg_asset")
 	old_layer = data.get("sg_layer")
