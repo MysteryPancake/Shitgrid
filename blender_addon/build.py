@@ -6,31 +6,36 @@ blender_db = os.environ.get("SHITGRID_BLEND_DB")
 if not blender_db:
 	raise OSError("Missing environment variable SHITGRID_BLEND_DB!")
 
+# Utility struct for storing stuff relating to an asset layer
 class Source_File:
-	# Path: String - Full path to layer file
-	# Name: String - Asset name
-	# Layer: String - Layer name
-	# Version: UInt - Layer version (starts at 1)
-	def __init__(self, path, name, layer, version):
+	# Path: Full path to layer file (path\to\cube_model_v001.blend)
+	# Name: Asset name (cube)
+	# Layer: Layer name (model)
+	# Version: Layer version (starts at 1)
+	def __init__(self, path: str, name: str, layer: str, version: int):
 		self.path = path
 		self.name = name
 		self.layer = layer
 		self.version = version
 
-def load_scene(path):
+# Loads the first scene in the file into our scene
+# This loaded all scenes originally but I couldn't be bothered with for loops everywhere
+def load_scene(path: str) -> bpy.types.Scene:
 	with bpy.data.libraries.load(path, link=False) as (their_data, our_data):
 		our_data.scenes = [their_data.scenes[0]]
 	return our_data.scenes[0]
 
-def unload_scene(scene):
+def unload_scene(scene: bpy.types.Scene) -> None:
 	# Wipe fake users, ensure data gets orphaned
 	for obj in scene.collection.all_objects:
 		obj.use_fake_user = False
 	for col in scene.collection.children_recursive:
 		col.use_fake_user = False
+	# Remove the scene, kill_orphans() to wipe the data
 	bpy.data.scenes.remove(scene)
 
-def kill_orphans():
+def kill_orphans() -> None:
+	# Wipe leftover data blocks we removed earlier
 	bpy.data.orphans_purge(do_local_ids=True, do_linked_ids=True, do_recursive=True)
 
 # =====================================================================
@@ -73,14 +78,14 @@ def kill_orphans():
 # This is huge overkill for most situations, but why not :)
 # =====================================================================
 class Similarity_Data:
-	def __init__(self, data, depth):
+	def __init__(self, data, depth: int):
 		self.name = self.__clean_name(data.name)
 		self.data_count = self.__count_data(data)
 		self.data = data
 		self.depth = depth
 
 	# When comparing names, strip .001 suffix
-	def __clean_name(self, name):
+	def __clean_name(self, name: str) -> str:
 		dot_index = name.rfind(".")
 		if dot_index >= 0:
 			return name[:dot_index]
@@ -98,14 +103,14 @@ class Similarity_Data:
 			return [len(obj.data.splines)]
 
 	# Compute difference exponentially, just for fun
-	def __pow_diff(self, power, a, b):
+	def __pow_diff(self, power: float, a: float, b: float) -> float:
 		return pow(power, -abs(a - b))
 
-	def compare(self, them):
+	def compare(self, them) -> float:
 		# Name similarity
 		score = SM(None, self.name, them.name).quick_ratio()
 		# Tree depth similarity
-		score += self.__pow_diff(2.0, self.depth, them.depth) * 2
+		score += self.__pow_diff(2, self.depth, them.depth) * 2
 		# Data similarity
 		if self.data_count and them.data_count:
 			for a, b in zip(self.data_count, them.data_count):
@@ -113,7 +118,7 @@ class Similarity_Data:
 		return score
 
 class Transfer_Map:
-	def __traverse_trees(self, data, col, depth=0, in_root=False):
+	def __traverse_trees(self, data, col: bpy.types.Collection, depth: int=0, in_root=False) -> None:
 		for child in col.children:
 			# Prevent loops influencing eachother
 			depth_edit = depth
@@ -175,7 +180,7 @@ class Transfer_Map:
 
 		return matches
 
-	def __init__(self, file):
+	def __init__(self, file: Source_File):
 		self.file = file
 
 	def __enter__(self):
@@ -199,7 +204,7 @@ class Layer_Base:
 	# Extracts stuff from modelling without materials, rigs, etc
 	# ========================================================================
 	@staticmethod
-	def process(file):
+	def process(file: Source_File):
 		# No way to import just Scene Collections, so import scene instead
 		scene = load_scene(file.path)
 
@@ -230,7 +235,7 @@ class Layer_Materials:
 	# Assuming models exist within the scene, transfers on materials
 	# ========================================================================
 	@staticmethod
-	def process(file):
+	def process(file: Source_File):
 		with Transfer_Map(file) as lookup:
 			for us, them in lookup.items():
 				# Wipe our material slots
@@ -290,11 +295,11 @@ class Layer_Materials:
 							vcol_to.data[loop.index].color = vcol_from.data[loop.index].color
 
 class Asset_Builder:
-	def __init__(self, asset):
-		self.asset = asset
+	def __init__(self, name: str):
+		self.asset = name
 		self.uuid = str(uuid4())
 
-	def __get_versions(self, layer):
+	def __get_versions(self, layer: str):
 		# Structure is "master/wip/asset/layer/asset_layer_v001.blend" for now
 		wip_folder = os.path.join(blender_db, "wip", self.asset, layer)
 		if not os.path.exists(wip_folder):
@@ -302,7 +307,7 @@ class Asset_Builder:
 		# Sort by name to retrieve correct version order
 		return sorted([os.path.join(wip_folder, f) for f in os.listdir(wip_folder) if f.endswith(".blend")])
 
-	def __get_latest(self, layer):
+	def __get_latest(self, layer: str):
 		versions = self.__get_versions(layer)
 		latest = len(versions)
 		if latest <= 0:
@@ -347,7 +352,7 @@ class Asset_Builder:
 		# Prepare for asset browser
 		self.__mark_asset()
 
-	def __update_catalog(self, version):
+	def __update_catalog(self, version: int):
 		# Update catalog manually
 		catalog_path = os.path.join(blender_db, "build", "blender_assets.cats.txt")
 		catalog_exists = os.path.isfile(catalog_path)
@@ -359,7 +364,7 @@ class Asset_Builder:
 			name = self.asset.capitalize()
 			catalog.write("\n{}:Builds/{}:{} v{:03d}".format(self.uuid, name, name, version))
 
-	def save(self, write_catalog=False):
+	def save(self, write_catalog: bool=False):
 		# Structure is "master/build/asset/asset_v001.blend" for now
 		asset_folder = os.path.join(blender_db, "build", self.asset)
 		if not os.path.exists(asset_folder):

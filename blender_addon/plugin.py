@@ -23,7 +23,8 @@ layer_items = [
 	("rigs", "Rigs", ""),
 ]
 
-def setup_asset_library():
+# In case the Asset Library gets used, show stuff in the build folder
+def setup_asset_library() -> None:
 	blender_db = os.environ.get("SHITGRID_BLEND_DB")
 	if not blender_db:
 		return
@@ -41,6 +42,7 @@ def setup_asset_library():
 	sg_lib = prefs.filepaths.asset_libraries[-1]
 	sg_lib.name = lib_name
 
+# Properties for this plugin shown in the UI
 class Properties(bpy.types.PropertyGroup):
 	def get_layer(self):
 		prefs = bpy.context.preferences
@@ -57,13 +59,16 @@ class Properties(bpy.types.PropertyGroup):
 	# Fetch properties
 	fetch_asset: bpy.props.StringProperty(name="Asset Name")
 
+	# DEV ONLY, REMOVE IN FINAL BUILD!
+	make_folder: bpy.props.BoolProperty(name="(DEV) Make asset if it doesn't exist")
+
 # ==============================================================================
 # Kitsu uses Blender names to represent links. I want to avoid this.
 # Blender names must be unique, so Blender often renames things without consent.
-# Instead of names, I used custom data to represent links.
+# Instead of names, I currently use custom data to represent links.
 # This avoids naming issues, but puts more emphasis on hierarchy.
 # ==============================================================================
-def tag_data(data, name, layer, version):
+def tag_data(data, name: str, layer: str, version: int) -> None:
 	old_name = data.get("sg_asset")
 	old_layer = data.get("sg_layer")
 	if not old_name:
@@ -109,8 +114,12 @@ class Publish_Operator(bpy.types.Operator):
 
 		wip_folder = os.path.join(blender_db, "wip", props.publish_asset)
 		if not os.path.exists(wip_folder):
-			self.report({"ERROR"}, "Asset {} doesn't exist yet! Add it on the website.".format(props.publish_asset))
-			return {"CANCELLED"}
+			if props.make_folder:
+				# DEV ONLY, REMOVE IN FINAL BUILD!
+				os.makedirs(wip_folder)
+			else:
+				self.report({"ERROR"}, "Asset {} doesn't exist yet! Add it on the website.".format(props.publish_asset))
+				return {"CANCELLED"}
 
 		# Structure is "master/wip/asset/layer/asset_layer_v001.blend" for now
 		layer_folder = os.path.join(wip_folder, props.layer)
@@ -124,22 +133,24 @@ class Publish_Operator(bpy.types.Operator):
 		file_name = "{}_{}_v{:03d}.blend".format(props.publish_asset, props.layer, version)
 		path = os.path.join(layer_folder, file_name)
 
-		# Use custom data to associate data with a specific version
+		# I'm using custom data to associate data blocks with an asset, version and layer
+		# First, tag all collections and objects which haven't already been tagged
 		root = context.scene.collection
 		for col in root.children_recursive:
 			tag_data(col, props.publish_asset, props.layer, version)
 		for obj in root.all_objects:
 			tag_data(obj, props.publish_asset, props.layer, version)
 
+		# Next, tag sub-object data blocks
 		if props.layer in update_whitelist:
 			for data_type in update_whitelist[props.layer]:
 				for block in getattr(bpy.data, data_type):
 					tag_data(block, props.publish_asset, props.layer, version)
 
-		# Save a copy. This copy should never be touched!
+		# Save a copy in the "wip" folder, this copy should never be touched!
 		bpy.ops.wm.save_as_mainfile(filepath=path, check_existing=True, copy=True)
 
-		# Would be nice to add a popup box for this
+		# Would be nice to add a popup for this
 		success_msg = "Published {} {} version {}!".format(props.publish_asset, props.layer, version)
 		self.report({"INFO"}, success_msg)
 
@@ -153,11 +164,12 @@ class Publish_Panel(bpy.types.Panel):
 	bl_category = "Shitgrid"
 
 	def draw(self, context):
-		# This can't be done in register(), so let's dump it here
+		# This can't be done in register(), so dumping it here for now
 		setup_asset_library()
 		scn = context.scene
 		self.layout.prop(scn.sg_props, "publish_asset")
 		self.layout.prop(scn.sg_props, "layer")
+		self.layout.prop(scn.sg_props, "make_folder")
 		self.layout.operator(Publish_Operator.bl_idname, icon="EXPORT")
 
 class Check_Updates_Operator(bpy.types.Operator):
@@ -186,7 +198,7 @@ class Update_Panel(bpy.types.Panel):
 			name = obj.get("sg_asset")
 			if name:
 				name_set.add(name)
-		names = ", ".join(name_set)
+		names = ", ".join(name_set) if name_set else "None found"
 
 		label = names if selected else "All ({})".format(names)
 		self.layout.label(text="Selected: {}".format(label))
@@ -227,6 +239,7 @@ class Fetch_Operator(bpy.types.Operator):
 		latest_path = versions[-1]
 		with bpy.data.libraries.load(latest_path, link=False) as (their_data, our_data):
 			our_data.collections = [their_data.collections[0]]
+
 		# Add to our Scene Collection
 		for col in our_data.collections:
 			context.scene.collection.children.link(col)
@@ -252,13 +265,13 @@ classes = [
 	Properties, Preferences
 ]
 
-def register():
+def register() -> None:
 	for cls in classes:
 		bpy.utils.register_class(cls)
 	scn = bpy.types.Scene
 	scn.sg_props = bpy.props.PointerProperty(type=Properties)
 
-def unregister():
+def unregister() -> None:
 	scn = bpy.types.Scene
 	del scn.sg_props
 	for cls in classes:
