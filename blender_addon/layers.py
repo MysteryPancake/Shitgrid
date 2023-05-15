@@ -108,4 +108,5 @@ class LayerMaterials:
 						for loop in us.data.loops:
 							vcol_to.data[loop.index].color = vcol_from.data[loop.index].color
 
+# Layers listed in dropdown menu
 listed_layers = [LayerMaterials]
