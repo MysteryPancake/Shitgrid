@@ -129,14 +129,14 @@ class Publish_Operator(bpy.types.Operator):
 		path = os.path.join(layer_folder, file_name)
 
 		# I'm using custom data to associate data blocks with an asset, version and layer
-		# First, tag all collections and objects which haven't already been tagged
+		# First tag all collections and objects which haven't already been tagged
 		root = context.scene.collection
 		for col in root.children_recursive:
 			tag_data(col, props.publish_asset, props.layer, version)
 		for obj in root.all_objects:
 			tag_data(obj, props.publish_asset, props.layer, version)
 
-		# Next, tag sub-object data blocks
+		# Next tag sub-object data blocks
 		if props.layer in update_whitelist:
 			for data_type in update_whitelist[props.layer]:
 				for block in getattr(bpy.data, data_type):

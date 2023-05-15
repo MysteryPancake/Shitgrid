@@ -31,11 +31,9 @@ def unload_scene(scene: bpy.types.Scene) -> None:
 		obj.use_fake_user = False
 	for col in scene.collection.children_recursive:
 		col.use_fake_user = False
-	# Remove the scene, kill_orphans() to wipe the data
+	# Remove scene, note this keeps the data block
 	bpy.data.scenes.remove(scene)
-
-def kill_orphans() -> None:
-	# Wipe leftover data blocks we removed earlier
+	# Wipe scene data block and anything else left over
 	bpy.data.orphans_purge(do_local_ids=True, do_linked_ids=True, do_recursive=True)
 
 # =====================================================================
@@ -89,7 +87,7 @@ class Similarity_Data:
 		self.data = data
 		self.depth = depth
 
-	# When comparing names, strip .001 suffix
+	# When comparing names, strip any .001 suffixes
 	def __clean_name(self, name: str) -> str:
 		dot_index = name.rfind(".")
 		if dot_index >= 0:
@@ -192,13 +190,10 @@ class Transfer_Map:
 		self.scene = load_scene(self.file.path)
 		print("========================================================")
 		print("Transferring {}...".format(self.file.path))
-		print("========================================================")
 		return self.__find_matches()
 
 	def __exit__(self, exc_type, exc_value, exc_traceback):
 		unload_scene(self.scene)
-		kill_orphans()
-		print("========================================================")
 		print("Finished transferring {}".format(self.file.path))
 		print("========================================================")
 
@@ -208,31 +203,35 @@ class Layer_Base:
 	# The deepest build layer, only used when headlessly building
 	# Extracts stuff from modelling without materials, rigs, etc
 	# ========================================================================
+	blacklist = {"LIGHT", "LIGHT_PROBE", "ARMATURE", "CAMERA", "SPEAKER"}
+
 	@staticmethod
 	def process(file: Source_File):
 		# No way to import just Scene Collections, so import scene instead
 		scene = load_scene(file.path)
 
-		# Copy top level stuff, children copy automatically
 		for obj in scene.collection.objects:
+			# Skip non-modelling objects
+			if obj.type in __class__.blacklist:
+				continue
+
+			# Wipe animation data
+			obj.animation_data_clear()
+
+			# Wipe materials
+			us.active_material_index = 0
+			for _ in range(len(ob.material_slots)):
+				bpy.ops.object.material_slot_remove({"object": obj})
+
+			# Link top-level objects, children copy automatically
 			bpy.context.scene.collection.objects.link(obj)
+
+		# Link top-level collections, children copy automatically
 		for col in scene.collection.children:
 			bpy.context.scene.collection.children.link(col)
 
 		# Done copying, remove the imported scene
 		unload_scene(scene)
-
-		# Wipe extra data
-		blacklist = [
-			"materials", "lights", "brushes", "lightprobes", "cameras", "armatures",
-			"actions", "palettes", "textures", "images", "speakers", "linestyles"
-		]
-		for junk in blacklist:
-			data_blocks = getattr(bpy.data, junk)
-			for block in data_blocks:
-				data_blocks.remove(block)
-
-		kill_orphans()
 
 class Layer_Materials:
 	# ========================================================================
@@ -245,7 +244,7 @@ class Layer_Materials:
 			for us, them in lookup.items():
 				# Wipe our material slots
 				while len(us.material_slots) > len(them.material_slots):
-					us.active_material_index = len(them.material_slots)
+					us.active_material_index = 0
 					bpy.ops.object.material_slot_remove({"object": us})
 
 				# Transfer material slots
@@ -402,8 +401,8 @@ def get_args():
 	return parsed_args
 
 if __name__ == "__main__":
-	args = get_args()
-	builder = Asset_Builder(args.asset)
-	#builder = Asset_Builder("debug")
+	#args = get_args()
+	#builder = Asset_Builder(args.asset)
+	builder = Asset_Builder("monke")
 	builder.asset_library_build()
-	builder.save(write_catalog=True)
+	#builder.save(write_catalog=True)

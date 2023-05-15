@@ -1,4 +1,4 @@
-:: This should be automated
+:: This part should be automated whenever an asset updates
 ECHO off
 SET /p asset="Type an asset name: "
 
