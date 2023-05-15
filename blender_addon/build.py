@@ -25,6 +25,9 @@ class AssetBuilder:
 
 	def __get_version(self, layer: str, version: int):
 		versions = self.__get_versions(layer)
+		num_versions = len(versions)
+		if version <= 0 or version > num_versions:
+			raise IndexError("Version {} is out of range! Max is {}".format(version, num_versions))
 		# SourceFile expects a version number starting at 1
 		return SourceFile(versions[version - 1], self.asset, layer, version)
 
@@ -61,10 +64,12 @@ class AssetBuilder:
 		asset_data.catalog_id = self.uuid
 		asset_data.author = getpass.getuser()
 
-	def process(self, layer):
+	# Version -1 loads the latest version
+	def process(self, layer, version: int=-1):
 		if not hasattr(layer, "folder"):
 			raise NotImplementedError("{} has no associated folder!".format(layer))
-		layer.process(self.__get_latest(layer.folder))
+		path = self.__get_version(layer.folder, version) if version > 0 else self.__get_latest(layer.folder)
+		layer.process(path)
 
 	def __update_catalog(self, version: int):
 		# Update catalog manually

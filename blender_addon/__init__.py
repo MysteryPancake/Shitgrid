@@ -92,6 +92,7 @@ class Properties(bpy.types.PropertyGroup):
 	# Developer properties
 	dev_make_folder: bpy.props.BoolProperty(name="(DEV) Make asset when missing")
 	dev_build_asset: bpy.props.StringProperty(name="Asset Name")
+	dev_build_version: bpy.props.IntProperty(name="Layer Version", default=1)
 	dev_build_layer: bpy.props.EnumProperty(name="Build Layer", items=layer_items)
 
 class Publish_Operator(bpy.types.Operator):
@@ -274,7 +275,7 @@ class Dev_Build_Base_Operator(bpy.types.Operator):
 		props = context.scene.sg_props
 		try:
 			builder = AssetBuilder(props.dev_build_asset)
-			builder.process(LayerBase)
+			builder.process(LayerBase, props.dev_build_version)
 			return {"FINISHED"}
 		except Exception as err:
 			self.report({"ERROR"}, str(err))
@@ -292,7 +293,7 @@ class Dev_Build_Layer_Operator(bpy.types.Operator):
 			for layer in listed_layers:
 				if layer.folder != props.dev_build_layer:
 					continue
-				builder.process(layer)
+				builder.process(layer, props.dev_build_version)
 			return {"FINISHED"}
 		except Exception as err:
 			self.report({"ERROR"}, str(err))
@@ -308,6 +309,7 @@ class Build_Panel(bpy.types.Panel):
 	def draw(self, context):
 		scn = context.scene
 		self.layout.prop(scn.sg_props, "dev_build_asset")
+		self.layout.prop(scn.sg_props, "dev_build_version")
 		self.layout.operator(Dev_Build_Base_Operator.bl_idname)
 		self.layout.prop(scn.sg_props, "dev_build_layer")
 		self.layout.operator(Dev_Build_Layer_Operator.bl_idname)
