@@ -41,12 +41,32 @@ class LayerBase:
 		unload_scene(scene)
 
 # ========================================================================
+# MODELLING LAYER
+# ========================================================================
+class LayerModelling:
+	folder = "models"
+	label = "Modelling"
+	# Sub-object data blocks which could be part of this layer
+	trigger_update = [
+		"fonts", "lattices", "metaballs", "meshes", "volumes", "curves", "grease_pencils",
+		"paint_curves", "hair_curves", "particles", "pointclouds", "shape_keys"
+	]
+
+	@staticmethod
+	def process(file: SourceFile):
+		print("TODO")
+		# TODO
+
+# ========================================================================
 # MATERIALS LAYER
-# Transfers materials onto an asset within the active scene
 # ========================================================================
 class LayerMaterials:
 	folder = "materials"
-	label = "Materials / UVs"
+	label = "Surfacing / UVs"
+	# Sub-object data blocks which could be part of this layer
+	trigger_update = [
+		"materials", "textures", "images", "brushes", "palettes", "linestyles"
+	]
 	
 	@staticmethod
 	def process(file: SourceFile):
@@ -108,5 +128,81 @@ class LayerMaterials:
 						for loop in us.data.loops:
 							vcol_to.data[loop.index].color = vcol_from.data[loop.index].color
 
-# Layers listed in dropdown menu
-listed_layers = [LayerMaterials]
+# ========================================================================
+# GROOMING LAYER
+# ========================================================================
+class LayerGrooming:
+	folder = "grooms"
+	label = "Grooming"
+	# Sub-object data blocks which could be part of this layer
+	trigger_update = ["hair_curves"]
+
+	@staticmethod
+	def process(file: SourceFile):
+		print("TODO")
+		# TODO
+
+# ========================================================================
+# RIGGING LAYER
+# ========================================================================
+class LayerRigging:
+	folder = "rigs"
+	label = "Rigging"
+	# Sub-object data blocks which could be part of this layer
+	trigger_update = ["armatures", "shape_keys"]
+
+	@staticmethod
+	def process(file: SourceFile):
+		print("TODO")
+		# TODO
+
+# ========================================================================
+# ASSEMBLY LAYER
+# ========================================================================
+class LayerAssembly:
+	folder = "assembly"
+	label = "Assembly / Layout"
+	# Sub-object data blocks which could be part of this layer
+	trigger_update = ["cameras"]
+
+	@staticmethod
+	def process(file: SourceFile):
+		print("TODO")
+		# TODO
+
+# ========================================================================
+# ANIMATIONS LAYER
+# ========================================================================
+class LayerAnimation:
+	folder = "anims"
+	label = "Animation"
+	# Sub-object data blocks which could be part of this layer
+	trigger_update = ["actions", "shape_keys"]
+
+	@staticmethod
+	def process(file: SourceFile):
+		print("TODO")
+		# TODO
+
+# ========================================================================
+# LIGHTING LAYER
+# ========================================================================
+class LayerLighting:
+	folder = "lights"
+	label = "Lighting"
+	# Sub-object data blocks which could be part of this layer
+	trigger_update = ["lights", "lightprobes"]
+
+	@staticmethod
+	def process(file: SourceFile):
+		print("TODO")
+		# TODO
+
+build_order = [LayerModelling, LayerMaterials, LayerGrooming, LayerRigging, LayerAssembly, LayerAnimation, LayerLighting]
+
+# For easier data access
+layer_menu = []
+layer_lookup = {}
+for layer in build_order:
+	layer_menu.append((layer.folder, layer.label, ""))
+	layer_lookup[layer.folder] = layer

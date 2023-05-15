@@ -66,8 +66,6 @@ class AssetBuilder:
 
 	# Version -1 loads the latest version
 	def process(self, layer, version: int=-1):
-		if not hasattr(layer, "folder"):
-			raise NotImplementedError("{} has no associated folder!".format(layer))
 		path = self.__get_version(layer.folder, version) if version > 0 else self.__get_latest(layer.folder)
 		layer.process(path)
 

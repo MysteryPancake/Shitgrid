@@ -46,22 +46,6 @@ def tag_data(data, name: str, layer: str, version: int) -> None:
 		# Updated data, change version
 		data["sg_version"] = version
 
-# Sub-object data blocks which should trigger a version update when changed
-update_whitelist = {
-	"models": [
-		"fonts", "lattices", "metaballs", "meshes", "volumes", "curves",
-		"grease_pencils", "hair_curves", "paint_curves", "particles", "pointclouds"
-	],
-	"materials": [
-		"materials", "textures", "images", "brushes", "palettes", "linestyles"
-	]
-}
-
-# Build dropdown menu
-layer_items = []
-for layer in listed_layers:
-	layer_items.append((layer.folder, layer.label, ""))
-
 # Usually artists stay in one layer (department specific)
 # Store layer as an addon pref so it stays between restarts
 class Preferences(bpy.types.AddonPreferences):
@@ -83,7 +67,7 @@ class Properties(bpy.types.PropertyGroup):
 		prefs.addons[__name__].preferences.layer = value
 
 	# Publish properties
-	layer: bpy.props.EnumProperty(name="Layer", items=layer_items, get=get_layer, set=set_layer)
+	layer: bpy.props.EnumProperty(name="Layer", items=layer_menu, get=get_layer, set=set_layer)
 	publish_asset: bpy.props.StringProperty(name="Asset Name")
 
 	# Fetch properties
@@ -93,7 +77,7 @@ class Properties(bpy.types.PropertyGroup):
 	dev_make_folder: bpy.props.BoolProperty(name="(DEV) Make asset when missing")
 	dev_build_asset: bpy.props.StringProperty(name="Asset Name")
 	dev_build_version: bpy.props.IntProperty(name="Layer Version", default=1)
-	dev_build_layer: bpy.props.EnumProperty(name="Build Layer", items=layer_items)
+	dev_build_layer: bpy.props.EnumProperty(name="Build Layer", items=layer_menu)
 
 class Publish_Operator(bpy.types.Operator):
 	"""Save and increment the version of the above assets"""
@@ -145,10 +129,9 @@ class Publish_Operator(bpy.types.Operator):
 			tag_data(obj, props.publish_asset, props.layer, version)
 
 		# Next tag sub-object data blocks
-		if props.layer in update_whitelist:
-			for data_type in update_whitelist[props.layer]:
-				for block in getattr(bpy.data, data_type):
-					tag_data(block, props.publish_asset, props.layer, version)
+		for data_type in layer_lookup[props.layer].trigger_update:
+			for block in getattr(bpy.data, data_type):
+				tag_data(block, props.publish_asset, props.layer, version)
 
 		# Save a copy in the "wip" folder, this copy should never be touched!
 		bpy.ops.wm.save_as_mainfile(filepath=path, check_existing=True, copy=True)
@@ -290,10 +273,7 @@ class Dev_Build_Layer_Operator(bpy.types.Operator):
 		props = context.scene.sg_props
 		try:
 			builder = AssetBuilder(props.dev_build_asset)
-			for layer in listed_layers:
-				if layer.folder != props.dev_build_layer:
-					continue
-				builder.process(layer, props.dev_build_version)
+			builder.process(layer_lookup[props.dev_build_layer], props.dev_build_version)
 			return {"FINISHED"}
 		except Exception as err:
 			self.report({"ERROR"}, str(err))
