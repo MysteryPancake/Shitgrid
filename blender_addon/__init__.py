@@ -1,5 +1,7 @@
 import bpy, os
 
+from .layers import listed_layers
+
 bl_info = {
 	"name": "Shitgrid Pipeline",
 	"description": "Official Unofficial ALA Pipeline (Sponsored by Ian Hubert)",
@@ -10,18 +12,6 @@ bl_info = {
 	"support": "COMMUNITY",
 	"category": "ALA",
 }
-
-# Usually artists stay in one layer (department specific)
-# Store layer as an addon pref so it stays between restarts
-class Preferences(bpy.types.AddonPreferences):
-	bl_idname = __name__
-	layer: bpy.props.IntProperty(name="Layer", default=0)
-
-layer_items = [
-	("models", "Models", ""),
-	("materials", "Materials / UVs", ""),
-	("rigs", "Rigs", ""),
-]
 
 # Show stuff in the "build" folder in the Asset Library
 def setup_asset_library() -> None:
@@ -41,26 +31,6 @@ def setup_asset_library() -> None:
 	bpy.ops.preferences.asset_library_add(directory=build_folder)
 	sg_lib = prefs.filepaths.asset_libraries[-1]
 	sg_lib.name = lib_name
-
-# Properties for this plugin shown in the UI
-class Properties(bpy.types.PropertyGroup):
-	def get_layer(self):
-		prefs = bpy.context.preferences
-		return prefs.addons[__name__].preferences.layer
-
-	def set_layer(self, value):
-		prefs = bpy.context.preferences
-		prefs.addons[__name__].preferences.layer = value
-
-	# Publish properties
-	layer: bpy.props.EnumProperty(name="Layer", items=layer_items, get=get_layer, set=set_layer)
-	publish_asset: bpy.props.StringProperty(name="Asset Name")
-
-	# Fetch properties
-	fetch_asset: bpy.props.StringProperty(name="Asset Name")
-
-	# DEV ONLY, REMOVE IN FINAL BUILD!
-	make_folder: bpy.props.BoolProperty(name="(DEV) Make asset if it doesn't exist")
 
 # Tags a data block with custom data used to link it with an asset, layer and version
 def tag_data(data, name: str, layer: str, version: int) -> None:
@@ -86,6 +56,43 @@ update_whitelist = {
 	]
 }
 
+# Build dropdown menu
+layer_items = []
+for layer in listed_layers:
+	layer_items.append((layer.folder, layer.label, ""))
+
+# Usually artists stay in one layer (department specific)
+# Store layer as an addon pref so it stays between restarts
+class Preferences(bpy.types.AddonPreferences):
+	bl_idname = __name__
+	layer: bpy.props.IntProperty(name="Layer", default=0)
+	dev_mode: bpy.props.BoolProperty(name="Developer Mode", default=False)
+
+	def draw(self, context):
+		self.layout.prop(self, "dev_mode")
+
+# Properties for this plugin shown in the UI
+class Properties(bpy.types.PropertyGroup):
+	def get_layer(self):
+		prefs = bpy.context.preferences
+		return prefs.addons[__name__].preferences.layer
+
+	def set_layer(self, value):
+		prefs = bpy.context.preferences
+		prefs.addons[__name__].preferences.layer = value
+
+	# Publish properties
+	layer: bpy.props.EnumProperty(name="Layer", items=layer_items, get=get_layer, set=set_layer)
+	publish_asset: bpy.props.StringProperty(name="Asset Name")
+
+	# Fetch properties
+	fetch_asset: bpy.props.StringProperty(name="Asset Name")
+
+	# Developer properties
+	dev_make_folder: bpy.props.BoolProperty(name="(DEV) Make asset when missing")
+	dev_build_asset: bpy.props.StringProperty(name="Asset Name")
+	dev_build_layer: bpy.props.EnumProperty(name="Build Layer", items=layer_items)
+
 class Publish_Operator(bpy.types.Operator):
 	"""Save and increment the version of the above assets"""
 	bl_idname = "pipeline.publish"
@@ -109,8 +116,7 @@ class Publish_Operator(bpy.types.Operator):
 
 		wip_folder = os.path.join(blender_db, "wip", props.publish_asset)
 		if not os.path.exists(wip_folder):
-			if props.make_folder:
-				# DEV ONLY, REMOVE IN FINAL BUILD!
+			if props.dev_make_folder:
 				os.makedirs(wip_folder)
 			else:
 				self.report({"ERROR"}, "Asset {} doesn't exist yet! Add it on the website.".format(props.publish_asset))
@@ -161,10 +167,15 @@ class Publish_Panel(bpy.types.Panel):
 	def draw(self, context):
 		# This can't be done in register(), so dumping it here for now
 		setup_asset_library()
+
 		scn = context.scene
 		self.layout.prop(scn.sg_props, "publish_asset")
 		self.layout.prop(scn.sg_props, "layer")
-		self.layout.prop(scn.sg_props, "make_folder")
+
+		# Developer-only option
+		if context.preferences.addons[__name__].preferences.dev_mode:
+			self.layout.prop(scn.sg_props, "dev_make_folder")
+
 		self.layout.operator(Publish_Operator.bl_idname, icon="EXPORT")
 
 class Check_Updates_Operator(bpy.types.Operator):
@@ -253,10 +264,44 @@ class Fetch_Panel(bpy.types.Panel):
 		self.layout.prop(scn.sg_props, "fetch_asset")
 		self.layout.operator(Fetch_Operator.bl_idname, icon="IMPORT")
 
+class Dev_Build_Base_Operator(bpy.types.Operator):
+	bl_idname = "pipeline.build_base"
+	bl_label = "Load Clean Geometry"
+
+	def execute(self, context):
+		# TODO
+		return {"FINISHED"}
+
+class Dev_Build_Layer_Operator(bpy.types.Operator):
+	bl_idname = "pipeline.build_layer"
+	bl_label = "Build Layer"
+	
+	def execute(self, context):
+		# TODO
+		return {"FINISHED"}
+
+class Build_Panel(bpy.types.Panel):
+	bl_label = "(DEV) Build"
+	bl_idname = "ALA_PT_Shitgrid_Build"
+	bl_space_type = "VIEW_3D"
+	bl_region_type = "UI"
+	bl_category = "Shitgrid"
+
+	def draw(self, context):
+		scn = context.scene
+		self.layout.prop(scn.sg_props, "dev_build_asset")
+		self.layout.operator(Dev_Build_Base_Operator.bl_idname)
+		self.layout.prop(scn.sg_props, "dev_build_layer")
+		self.layout.operator(Dev_Build_Layer_Operator.bl_idname)
+
+	@classmethod
+	def poll(self, context):
+		return context.preferences.addons[__name__].preferences.dev_mode
+
 # Dump all classes to register in here
 classes = [
-	Publish_Panel, Update_Panel, Fetch_Panel,
-	Publish_Operator, Check_Updates_Operator, Fetch_Operator,
+	Publish_Panel, Update_Panel, Fetch_Panel, Build_Panel,
+	Publish_Operator, Check_Updates_Operator, Fetch_Operator, Dev_Build_Base_Operator, Dev_Build_Layer_Operator,
 	Properties, Preferences
 ]
 
