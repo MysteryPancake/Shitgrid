@@ -59,6 +59,8 @@ class LayerModelling:
 
 # ========================================================================
 # MATERIALS LAYER
+# Transfers materials between objects within the active scene
+# Mostly stolen from Kitsu's codebase :)
 # ========================================================================
 class LayerMaterials:
 	folder = "materials"
