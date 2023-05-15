@@ -1,6 +1,7 @@
 import bpy, os
 
-from .layers import listed_layers
+from .build import AssetBuilder
+from .layers import *
 
 bl_info = {
 	"name": "Shitgrid Pipeline",
@@ -265,20 +266,37 @@ class Fetch_Panel(bpy.types.Panel):
 		self.layout.operator(Fetch_Operator.bl_idname, icon="IMPORT")
 
 class Dev_Build_Base_Operator(bpy.types.Operator):
+	"""Loads clean base geometry from modelling"""
 	bl_idname = "pipeline.build_base"
-	bl_label = "Load Clean Geometry"
+	bl_label = "Load Base Geometry"
 
 	def execute(self, context):
-		# TODO
-		return {"FINISHED"}
+		props = context.scene.sg_props
+		try:
+			builder = AssetBuilder(props.dev_build_asset)
+			builder.process(LayerBase)
+			return {"FINISHED"}
+		except Exception as err:
+			self.report({"ERROR"}, str(err))
+			return {"CANCELLED"}
 
 class Dev_Build_Layer_Operator(bpy.types.Operator):
+	"""Transfers data from the selected layer onto the asset"""
 	bl_idname = "pipeline.build_layer"
-	bl_label = "Build Layer"
+	bl_label = "Build Selected Layer"
 	
 	def execute(self, context):
-		# TODO
-		return {"FINISHED"}
+		props = context.scene.sg_props
+		try:
+			builder = AssetBuilder(props.dev_build_asset)
+			for layer in listed_layers:
+				if layer.folder != props.dev_build_layer:
+					continue
+				builder.process(layer)
+			return {"FINISHED"}
+		except Exception as err:
+			self.report({"ERROR"}, str(err))
+			return {"CANCELLED"}
 
 class Build_Panel(bpy.types.Panel):
 	bl_label = "(DEV) Build"

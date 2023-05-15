@@ -14,26 +14,26 @@ class LayerBase:
 
 	@staticmethod
 	def process(file: SourceFile):
-		# No way to import just Scene Collections, so import scene instead
+		# Can't import Scene Collections, so import the whole scene instead
 		scene = load_scene(file.path)
 
-		for obj in scene.collection.objects:
-			# Skip non-modelling objects
+		for obj in scene.collection.all_objects:
+			# Remove non-modelling objects
 			if obj.type in __class__.blacklist:
+				bpy.data.objects.remove(obj)
 				continue
 
 			# Wipe animation data
 			obj.animation_data_clear()
 
 			# Wipe materials
-			us.active_material_index = 0
-			for _ in range(len(ob.material_slots)):
+			obj.active_material_index = 0
+			for _ in range(len(obj.material_slots)):
 				bpy.ops.object.material_slot_remove({"object": obj})
 
-			# Link top-level objects, children copy automatically
+		# Transfer top level of theirs to us, children copy automatically
+		for obj in scene.collection.objects:
 			bpy.context.scene.collection.objects.link(obj)
-
-		# Link top-level collections, children copy automatically
 		for col in scene.collection.children:
 			bpy.context.scene.collection.children.link(col)
 
