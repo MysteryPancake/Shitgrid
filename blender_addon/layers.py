@@ -2,7 +2,7 @@ import bpy
 
 from .transfer_map import TransferMap
 from .utils import *
-from .kitsu_utils import *
+from .utils_kitsu import *
 
 # ========================================================================
 # BASE LAYER
