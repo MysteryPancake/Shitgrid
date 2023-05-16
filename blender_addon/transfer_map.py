@@ -68,7 +68,7 @@ class Similarity:
 		# Only supported on objects for now
 		if type(obj) != bpy.types.Object:
 			return
-		# TODO: Support more types
+		# TODO: Support more object types
 		if obj.type == "MESH":
 			return [len(obj.data.vertices), len(obj.data.edges), len(obj.data.polygons)]
 		elif obj.type == "CURVE":
@@ -123,7 +123,7 @@ class TransferMap:
 				in_root_edit = obj_name == self.file.name
 			if in_root_edit:
 				breadth += 1
-				if not obj.type in data:
+				if obj.type not in data:
 					data[obj.type] = []
 				data[obj.type].append(Similarity(obj, depth, breadth))
 
@@ -136,7 +136,7 @@ class TransferMap:
 		matches = {}
 		for category in target_data:
 			for target in target_data[category]:
-				if not category in source_data:
+				if category not in source_data:
 					print(f"ERROR: Missing category '{category}'")
 					continue
 				

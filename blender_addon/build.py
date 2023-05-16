@@ -23,7 +23,7 @@ class AssetBuilder:
 			raise FileNotFoundError(f"No versions for {layer} exist!")
 		return sorted(versions)
 
-	def __get_version(self, layer: str, version: int):
+	def __get_version(self, layer: str, version: int) -> SourceFile:
 		versions = self.__get_versions(layer)
 		num_versions = len(versions)
 		if version <= 0 or version > num_versions:
@@ -31,12 +31,12 @@ class AssetBuilder:
 		# SourceFile expects a version number starting at 1
 		return SourceFile(versions[version - 1], self.asset, layer, version)
 
-	def __get_latest(self, layer: str):
+	def __get_latest(self, layer: str) -> SourceFile:
 		versions = self.__get_versions(layer)
 		# SourceFile expects a version number starting at 1
 		return SourceFile(versions[-1], self.asset, layer, len(versions))
 
-	def mark_asset(self):
+	def mark_asset(self) -> None:
 		# Ensure a root collection for Asset Browser listing
 		root = None
 		base = bpy.context.scene.collection
@@ -65,11 +65,11 @@ class AssetBuilder:
 		asset_data.author = getpass.getuser()
 
 	# Version -1 loads the latest version
-	def process(self, layer, version: int=-1):
+	def process(self, layer, version: int=-1) -> None:
 		path = self.__get_version(layer.folder, version) if version > 0 else self.__get_latest(layer.folder)
 		layer.process(path)
 
-	def __update_catalog(self, version: int):
+	def __update_catalog(self, version: int) -> None:
 		# Update catalog manually
 		catalog_path = os.path.join(self.blender_db, "build", "blender_assets.cats.txt")
 		catalog_exists = os.path.isfile(catalog_path)
@@ -81,7 +81,7 @@ class AssetBuilder:
 			name = self.asset.capitalize()
 			catalog.write(f"\n{self.uuid}:Builds/{name}:{name} v{version:03d}")
 
-	def save(self, write_catalog: bool=False):
+	def save(self, write_catalog: bool=False) -> None:
 		# Structure is "master/build/asset/asset_v001.blend" for now
 		asset_folder = os.path.join(self.blender_db, "build", self.asset)
 		if not os.path.exists(asset_folder):

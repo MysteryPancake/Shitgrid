@@ -270,11 +270,11 @@ class LayerLighting:
 		print("TODO")
 		# TODO
 
-build_order = [LayerModelling, LayerMaterials, LayerGrooming, LayerRigging, LayerAssembly, LayerAnimation, LayerLighting]
+listed_layers = [LayerModelling, LayerMaterials, LayerGrooming, LayerRigging, LayerAssembly, LayerAnimation, LayerLighting]
 
 # For easier data access
 layer_menu = []
 layer_lookup = {}
-for layer in build_order:
+for layer in listed_layers:
 	layer_menu.append((layer.folder, layer.label, ""))
 	layer_lookup[layer.folder] = layer

@@ -82,8 +82,8 @@ class Publish_Operator(bpy.types.Operator):
 	bl_label = "Publish Asset"
 
 	def execute(self, context):
-		props = context.scene.sg_props
 		blender_db = os.environ.get("SG_BLEND_DB")
+		props = context.scene.sg_props
 
 		if not props.layer:
 			self.report({"ERROR_INVALID_INPUT"}, "Please select a layer!")
@@ -155,13 +155,47 @@ class Publish_Panel(bpy.types.Panel):
 
 		self.layout.operator(Publish_Operator.bl_idname, icon="EXPORT")
 
+def get_selected_names(context):
+	# Default to all visible objects if none are selected
+	selected = context.selected_objects
+	objects = selected if selected else context.visible_objects
+	names = set()
+	for obj in objects:
+		name = obj.get("sg_asset")
+		if name:
+			names.add(name)
+	return names
+
 class Check_Updates_Operator(bpy.types.Operator):
 	"""Check if asset updates are available"""
 	bl_idname = "pipeline.check_updates"
 	bl_label = "Check for Asset Updates"
 
 	def execute(self, context):
-		# TODO
+		blender_db = os.environ.get("SG_BLEND_DB")
+		name_set = get_selected_names(context)
+
+		for layer in listed_layers:
+			for category in layer.trigger_update:
+
+				block = getattr(bpy.data, category)
+				name = block.get("sg_asset")
+				# Blocks without sg_asset get skipped here too
+				if name not in name_set:
+					continue
+
+				layer = block.get("sg_layer")
+				folder = os.path.join(blender_db, "wip", asset, layer)
+				if not os.path.exists(folder):
+					continue
+
+				current = block.get("sg_version")
+				latest = len([p for p in os.listdir(folder) if p.endswith(".blend")]) + 1
+
+				print(f"Current: {current}, Latest: {latest}")
+				if latest > current:
+					print("OUT OF DATE")
+
 		return {"FINISHED"}
 
 class Update_Panel(bpy.types.Panel):
@@ -171,23 +205,12 @@ class Update_Panel(bpy.types.Panel):
 	bl_region_type = "UI"
 	bl_category = "Shitgrid"
 
-	def __draw_selected(self, context):
-		# Default to all visible objects if none are selected
-		selected = context.selected_objects
-		objects = selected if selected else context.visible_objects
-
-		name_set = set()
-		for obj in objects:
-			name = obj.get("sg_asset")
-			if name:
-				name_set.add(name)
-		names = ", ".join(name_set) if name_set else "None found"
-
-		label = names if selected else f"All ({names})"
-		self.layout.label(text=f"Selected: {label}")
-
 	def draw(self, context):
-		self.__draw_selected(context)
+		name_set = get_selected_names(context)
+		names = ", ".join(name_set) if name_set else "None found"
+		label = names if selected else f"All ({names})"
+
+		self.layout.label(text=f"Selected: {label}")
 		self.layout.operator(Check_Updates_Operator.bl_idname, icon="FILE_REFRESH")
 
 class Fetch_Operator(bpy.types.Operator):
@@ -196,8 +219,8 @@ class Fetch_Operator(bpy.types.Operator):
 	bl_label = "Fetch Asset"
 
 	def execute(self, context):
-		props = context.scene.sg_props
 		blender_db = os.environ.get("SG_BLEND_DB")
+		props = context.scene.sg_props
 
 		if not props.fetch_asset:
 			self.report({"ERROR_INVALID_INPUT"}, "Please type in an asset!")
@@ -294,7 +317,7 @@ classes = [
 ]
 
 def register() -> None:
-	if not "SG_BLEND_DB" in os.environ:
+	if "SG_BLEND_DB" not in os.environ:
 		print("ERROR: Missing environment variable SG_BLEND_DB!")
 		return
 
