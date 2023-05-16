@@ -16,18 +16,18 @@ class AssetBuilder:
 		# Structure is "master/wip/asset/layer/asset_layer_v001.blend" for now
 		wip_folder = os.path.join(self.blender_db, "wip", self.asset, layer)
 		if not os.path.exists(wip_folder):
-			raise NotADirectoryError("Missing {} folder: {}".format(layer, wip_folder))
+			raise NotADirectoryError(f"Missing {layer} folder: {wip_folder}")
 		# Sort by name to retrieve correct version order
 		versions = [os.path.join(wip_folder, f) for f in os.listdir(wip_folder) if f.endswith(".blend")]
 		if not versions:
-			raise FileNotFoundError("No versions for {} exist!".format(layer))
+			raise FileNotFoundError(f"No versions for {layer} exist!")
 		return sorted(versions)
 
 	def __get_version(self, layer: str, version: int):
 		versions = self.__get_versions(layer)
 		num_versions = len(versions)
 		if version <= 0 or version > num_versions:
-			raise IndexError("Version {} is out of range! Max is {}".format(version, num_versions))
+			raise IndexError(f"Version {version} is out of range! Max is {num_versions}")
 		# SourceFile expects a version number starting at 1
 		return SourceFile(versions[version - 1], self.asset, layer, version)
 
@@ -76,10 +76,10 @@ class AssetBuilder:
 		with open(catalog_path, "a") as catalog:
 			if not catalog_exists:
 				# Write default content, requires a folder UUID for some reason
-				catalog.write("VERSION 1\n\n{}:Builds:Builds".format(str(uuid4())))
+				catalog.write(f"VERSION 1\n\n{uuid4()}:Builds:Builds")
 			# Structure is "Builds/Asset/Asset v001" for now
 			name = self.asset.capitalize()
-			catalog.write("\n{}:Builds/{}:{} v{:03d}".format(self.uuid, name, name, version))
+			catalog.write(f"\n{self.uuid}:Builds/{name}:{name} v{version:03d}")
 
 	def save(self, write_catalog: bool=False):
 		# Structure is "master/build/asset/asset_v001.blend" for now
@@ -91,14 +91,14 @@ class AssetBuilder:
 		version = len([f for f in os.listdir(asset_folder) if f.endswith(".blend")]) + 1
 
 		# Name is "asset_v001.blend" for now
-		file_name = "{}_v{:03d}.blend".format(self.asset, version)
+		file_name = f"{self.asset}_v{version:03d}.blend"
 		file_path = os.path.join(asset_folder, file_name)
 
 		if write_catalog:
 			self.__update_catalog(version)
 
 		bpy.ops.wm.save_mainfile(filepath=file_path)
-		print("Successfully built {}".format(file_path))
+		print(f"Successfully built {file_path}")
 
 def get_args():
 	parser = argparse.ArgumentParser()

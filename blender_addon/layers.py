@@ -2,6 +2,7 @@ import bpy
 
 from .transfer_map import TransferMap
 from .utils import *
+from .kitsu_utils import *
 
 # ========================================================================
 # BASE LAYER
@@ -59,7 +60,7 @@ class LayerModelling:
 
 # ========================================================================
 # MATERIALS LAYER
-# Transfers materials between objects within the active scene
+# Transfers materials and UVs between source and target objects
 # Mostly stolen from Kitsu's codebase :)
 # ========================================================================
 class LayerMaterials:
@@ -73,62 +74,131 @@ class LayerMaterials:
 	@staticmethod
 	def process(file: SourceFile):
 		with TransferMap(file) as lookup:
-			for us, them in lookup.items():
+			for obj_target, obj_source in lookup.items():
+
 				# Wipe our material slots
-				while len(us.material_slots) > len(them.material_slots):
-					us.active_material_index = 0
-					bpy.ops.object.material_slot_remove({"object": us})
+				while len(obj_target.material_slots) > len(obj_source.material_slots):
+					obj_target.active_material_index = 0
+					bpy.ops.object.material_slot_remove({"object": obj_target})
 
 				# Transfer material slots
-				for idx in range(len(them.material_slots)):
-					if idx >= len(us.material_slots):
-						bpy.ops.object.material_slot_add({"object": us})
-					us.material_slots[idx].link = them.material_slots[idx].link
-					us.material_slots[idx].material = them.material_slots[idx].material
+				for idx in range(len(obj_source.material_slots)):
+					if idx >= len(obj_target.material_slots):
+						bpy.ops.object.material_slot_add({"object": obj_target})
+					obj_target.material_slots[idx].link = obj_source.material_slots[idx].link
+					obj_target.material_slots[idx].material = obj_source.material_slots[idx].material
 
 				# Transfer active material slot
-				us.active_material_index = them.active_material_index
+				obj_target.active_material_index = obj_source.active_material_index
 
-				if us.type == "CURVE":
-					# Transfer curve material
-					for spl_to, spl_from in zip(us.data.splines, them.data.splines):
+				# Transfer material slot assignments for curve
+				if obj_target.type == "CURVE":
+					if not obj_target.data.splines:
+						print(f"Curve object '{obj_target.name}' has empty object data")
+						continue
+					for spl_to, spl_from in zip(obj_target.data.splines, obj_source.data.splines):
 						spl_to.material_index = spl_from.material_index
 
-				elif us.type == "MESH":
-					# Transfer face data
-					for pol_to, pol_from in zip(us.data.polygons, them.data.polygons):
+				# Rest of the code applies to meshes only
+				if obj_target.type != "MESH":
+					continue
+
+				if not obj_target.data.vertices:
+					print(f"Mesh object '{obj_target.name}' has empty object data")
+					continue
+
+				topo_match = match_topology(obj_source, obj_target)
+				if not topo_match:  # TODO: Support trivial topology changes in more solid way than proximity transfer
+					print(f"Mismatching topology, falling back to proximity transfer. (Object '{obj_target.name}')")
+
+				# Transfer face data
+				if topo_match:
+					for pol_to, pol_from in zip(obj_target.data.polygons, obj_source.data.polygons):
 						pol_to.material_index = pol_from.material_index
 						pol_to.use_smooth = pol_from.use_smooth
+				else:
+					obj_source_eval = obj_source.evaluated_get(depsgraph)
+					for pol_target in obj_target.data.polygons:
+						(hit, loc, norm, face_index) = obj_source_eval.closest_point_on_mesh(pol_target.center)
+						pol_source = obj_source_eval.data.polygons[face_index]
+						pol_target.material_index = pol_source.material_index
+						pol_target.use_smooth = pol_source.use_smooth
 
-					# Transfer UV seams
-					for edge_to, edge_from in zip(us.data.edges, them.data.edges):
+				# Transfer UV Seams
+				if topo_match:
+					for edge_from, edge_to in zip(obj_source.data.edges, obj_target.data.edges):
 						edge_to.use_seam = edge_from.use_seam
+				else:
+					bpy.ops.object.data_transfer(
+						{
+							"object": obj_source,
+							"selected_editable_objects": [obj_target],
+						},
+						data_type="SEAM",
+						edge_mapping="NEAREST",
+						mix_mode="REPLACE",
+					)
 
-					# Wipe our UV layers
-					while len(us.data.uv_layers) > 0:
-						us.data.uv_layers.remove(us.data.uv_layers[0])
+				# Wipe our UV layers
+				while obj_target.data.uv_layers:
+					obj_target.data.uv_layers.remove(obj_target.data.uv_layers[0])
 
-					# Transfer UV layers
-					for uv_from in them.data.uv_layers:
-						uv_to = us.data.uv_layers.new(name=uv_from.name, do_init=False)
-						for loop in us.data.loops:
+				# Transfer UV layers
+				if topo_match:
+					for uv_from in obj_source.data.uv_layers:
+						uv_to = obj_target.data.uv_layers.new(name=uv_from.name, do_init=False)
+						for loop in obj_target.data.loops:
 							uv_to.data[loop.index].uv = uv_from.data[loop.index].uv
+				else:
+					for uv_from in obj_source.data.uv_layers:
+						uv_to = obj_target.data.uv_layers.new(name=uv_from.name, do_init=False)
+						transfer_corner_data(obj_source, obj_target, uv_from.data, uv_to.data, data_suffix="uv")
 
-					# Make sure correct UV layer is active
-					for uv_l in them.data.uv_layers:
-						if uv_l.active_render:
-							us.data.uv_layers[uv_l.name].active_render = True
-							break
+				# Make sure correct layer is active
+				for uv_l in obj_source.data.uv_layers:
+					if uv_l.active_render:
+						obj_target.data.uv_layers[uv_l.name].active_render = True
+						break
 
-					# Wipe our vertex colors
-					while len(us.data.vertex_colors) > 0:
-						us.data.vertex_colors.remove(us.data.vertex_colors[0])
+				# Wipe our vertex colors
+				while obj_target.data.vertex_colors:
+					obj_target.data.vertex_colors.remove(obj_target.data.vertex_colors[0])
 
-					# Transfer vertex colors
-					for vcol_from in them.data.vertex_colors:
-						vcol_to = us.data.vertex_colors.new(name=vcol_from.name, do_init=False)
-						for loop in us.data.loops:
+				# Transfer vertex colors
+				if topo_match:
+					for vcol_from in obj_source.data.vertex_colors:
+						vcol_to = obj_target.data.vertex_colors.new(name=vcol_from.name, do_init=False)
+						for loop in obj_target.data.loops:
 							vcol_to.data[loop.index].color = vcol_from.data[loop.index].color
+				else:
+					for vcol_from in obj_source.data.vertex_colors:
+						vcol_to = obj_target.data.vertex_colors.new(name=vcol_from.name, do_init=False)
+						transfer_corner_data(obj_source, obj_target, vcol_from.data, vcol_to.data, data_suffix="color")
+
+				# Set 'PREVIEW' vertex color layer as active
+				for idx, vcol in enumerate(obj_target.data.vertex_colors):
+					if vcol.name == "PREVIEW":
+						obj_target.data.vertex_colors.active_index = idx
+						break
+
+				# Set 'Baking' or 'UVMap' UV layer as active
+				for idx, uvlayer in enumerate(obj_target.data.uv_layers):
+					if uvlayer.name == "Baking":
+						obj_target.data.uv_layers.active_index = idx
+						break
+					elif uvlayer.name == "UVMap":
+						obj_target.data.uv_layers.active_index = idx
+
+				# Select preview texture as active if found
+				for mslot in obj_target.material_slots:
+					if not mslot.material or not mslot.material.node_tree:
+						continue
+					for node in mslot.material.node_tree.nodes:
+						if not node.type == "TEX_IMAGE" or not node.image:
+							continue
+						if "preview" in node.image.name:
+							mslot.material.node_tree.nodes.active = node
+							break
 
 # ========================================================================
 # GROOMING LAYER

@@ -49,11 +49,12 @@ from .utils import *
 # =====================================================================
 
 class Similarity:
-	def __init__(self, data, depth: int):
+	def __init__(self, data, depth: int, breadth: int):
 		self.name = self.__clean_name(data.name)
 		self.data_count = self.__count_data(data)
 		self.data = data
 		self.depth = depth
+		self.breadth = breadth
 
 	# When comparing names, strip any .001 suffixes
 	def __clean_name(self, name: str) -> str:
@@ -77,19 +78,22 @@ class Similarity:
 	def __pow_diff(self, power: float, a: float, b: float) -> float:
 		return pow(power, -abs(a - b))
 
-	def compare(self, them) -> float:
+	def compare(self, other) -> float:
 		# Name similarity
-		score = SM(None, self.name, them.name).quick_ratio()
-		# Tree depth similarity
-		score += self.__pow_diff(2, self.depth, them.depth) * 2
+		score = SM(None, self.name, other.name).quick_ratio()
+		# Tree depth similarity (Y axis)
+		score += self.__pow_diff(2.0, self.depth, other.depth) * 2.0
+		# Tree breadth similarity (X axis)
+		score += self.__pow_diff(2.0, self.breadth, other.breadth) * 2.0
 		# Data similarity
-		if self.data_count and them.data_count:
-			for a, b in zip(self.data_count, them.data_count):
+		if self.data_count and other.data_count:
+			for a, b in zip(self.data_count, other.data_count):
 				score += self.__pow_diff(1.1, a, b)
 		return score
 
 class TransferMap:
 	def __traverse_trees(self, data, col: bpy.types.Collection, depth: int=0, in_root=False) -> None:
+		breadth = 0
 		for child in col.children:
 			# Prevent loops influencing eachother
 			depth_edit = depth
@@ -102,8 +106,9 @@ class TransferMap:
 				in_root_edit = child_name == self.file.name
 			if in_root_edit:
 				# Don't include collections for now
-				# data["COLLECTION"].append(Similarity(child, depth_edit))
+				# data["COLLECTION"].append(Similarity(child, depth_edit, breadth))
 				depth_edit += 1
+				breadth += 1
 			else:
 				# Depth is relative to our roots
 				depth_edit = 0
@@ -117,50 +122,55 @@ class TransferMap:
 			if obj_name:
 				in_root_edit = obj_name == self.file.name
 			if in_root_edit:
+				breadth += 1
 				if not obj.type in data:
 					data[obj.type] = []
-				data[obj.type].append(Similarity(obj, depth))
+				data[obj.type].append(Similarity(obj, depth, breadth))
 
 	def __find_matches(self):
-		our_data = {}
-		their_data = {}
-		self.__traverse_trees(our_data, bpy.context.scene.collection)
-		self.__traverse_trees(their_data, self.scene.collection)
+		source_data = {}
+		target_data = {}
+		self.__traverse_trees(source_data, self.scene.collection)
+		self.__traverse_trees(target_data, bpy.context.scene.collection)
 
 		matches = {}
-		for category in our_data:
-			for us in our_data[category]:
-				if not category in their_data:
+		for category in target_data:
+			for target in target_data[category]:
+				if not category in source_data:
 					print("ERROR: Missing category " + category)
 					continue
 				
 				# We love O(n^2) complexity
 				best_score = 0
-				best_item = None
-				for them in their_data[category]:
-					score = us.compare(them)
+				source_item = None
+				for source in source_data[category]:
+					score = target.compare(source)
 					if score > best_score:
 						best_score = score
-						best_item = them
+						source_item = source
 
 				if best_score >= 1:
-					print("Matched {} with {} ({} score)".format(us.data.name, best_item.data.name, best_score))
-					matches[us.data] = best_item.data
+					print(f"Matched {target.data.name} with {source_item.data.name} ({best_score} score)")
+					matches[target.data] = source_item.data
 				else:
-					print("ERROR: Could not match {} ({} score)".format(us.data.name, best_score))
+					print(f"ERROR: Could not match {target.data.name} ({best_score} score)")
 
 		return matches
 
 	def __init__(self, file: SourceFile):
 		self.file = file
-
-	def __enter__(self):
-		self.scene = load_scene(self.file.path)
+		self.scene = load_scene(file.path)
 		print("========================================================")
-		print("Transferring {}...".format(self.file.path))
+		print(f"Transferring {file.path}...")
+		
+	def close(self):
+		unload_scene(self.scene)
+		print(f"Finished transferring {self.file.path}")
+		print("========================================================")
+
+	# Used when calling "with TransferMap(...) as map:"
+	def __enter__(self):
 		return self.__find_matches()
 
 	def __exit__(self, exc_type, exc_value, exc_traceback):
-		unload_scene(self.scene)
-		print("Finished transferring {}".format(self.file.path))
-		print("========================================================")
+		self.close()

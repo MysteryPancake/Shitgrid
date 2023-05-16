@@ -74,7 +74,7 @@ class Properties(bpy.types.PropertyGroup):
 	fetch_asset: bpy.props.StringProperty(name="Asset Name")
 
 	# Developer properties
-	dev_make_folder: bpy.props.BoolProperty(name="(DEV) Make asset when missing")
+	dev_make_folder: bpy.props.BoolProperty(name="(DEV) Make folder if missing")
 	dev_build_asset: bpy.props.StringProperty(name="Asset Name")
 	dev_build_version: bpy.props.IntProperty(name="Layer Version", default=1)
 	dev_build_layer: bpy.props.EnumProperty(name="Build Layer", items=layer_menu)
@@ -105,7 +105,7 @@ class Publish_Operator(bpy.types.Operator):
 			if props.dev_make_folder:
 				os.makedirs(wip_folder)
 			else:
-				self.report({"ERROR"}, "Asset {} doesn't exist yet! Add it on the website.".format(props.publish_asset))
+				self.report({"ERROR"}, f"Folder for {props.publish_asset} doesn't exist yet! Add it on the website.")
 				return {"CANCELLED"}
 
 		# Structure is "master/wip/asset/layer/asset_layer_v001.blend" for now
@@ -117,7 +117,7 @@ class Publish_Operator(bpy.types.Operator):
 		version = len([p for p in os.listdir(layer_folder) if p.endswith(".blend")]) + 1
 
 		# Name is "asset_layer_v001.blend" for now
-		file_name = "{}_{}_v{:03d}.blend".format(props.publish_asset, props.layer, version)
+		file_name = f"{props.publish_asset}_{props.layer}_v{version:03d}.blend"
 		path = os.path.join(layer_folder, file_name)
 
 		# I'm using custom data to associate data blocks with an asset, version and layer
@@ -137,7 +137,7 @@ class Publish_Operator(bpy.types.Operator):
 		bpy.ops.wm.save_as_mainfile(filepath=path, check_existing=True, copy=True)
 
 		# Would be nice to add a popup for this
-		success_msg = "Published {} {} version {}!".format(props.publish_asset, props.layer, version)
+		success_msg = f"Published {props.publish_asset} {props.layer} version {version}!"
 		self.report({"INFO"}, success_msg)
 
 		return {"FINISHED"}
@@ -191,8 +191,8 @@ class Update_Panel(bpy.types.Panel):
 				name_set.add(name)
 		names = ", ".join(name_set) if name_set else "None found"
 
-		label = names if selected else "All ({})".format(names)
-		self.layout.label(text="Selected: {}".format(label))
+		label = names if selected else f"All ({names})"
+		self.layout.label(text=f"Selected: {label}")
 
 	def draw(self, context):
 		self.__draw_selected(context)
@@ -217,22 +217,22 @@ class Fetch_Operator(bpy.types.Operator):
 
 		build_folder = os.path.join(blender_db, "build", props.fetch_asset)
 		if not os.path.exists(build_folder):
-			self.report({"ERROR"}, "Build folder for asset {} doesn't exist yet!".format(props.fetch_asset))
+			self.report({"ERROR"}, f"Build folder for {props.fetch_asset} doesn't exist yet!")
 			return {"CANCELLED"}
 
 		# Sort by name to retrieve correct version order
 		versions = sorted([os.path.join(build_folder, f) for f in os.listdir(build_folder) if f.endswith(".blend")])
 		if not versions:
-			self.report({"ERROR"}, "Builds for asset {} don't exist yet!".format(props.fetch_asset))
+			self.report({"ERROR"}, f"Builds for {props.fetch_asset} don't exist yet!")
 			return {"CANCELLED"}
 
 		# Assume top collection is the root we need to import
 		latest_path = versions[-1]
-		with bpy.data.libraries.load(latest_path, link=False) as (their_data, our_data):
-			our_data.collections = [their_data.collections[0]]
+		with bpy.data.libraries.load(latest_path, link=False) as (source_data, target_data):
+			target_data.collections = [source_data.collections[0]]
 
 		# Add to our Scene Collection
-		for col in our_data.collections:
+		for col in target_data.collections:
 			context.scene.collection.children.link(col)
 
 		return {"FINISHED"}
