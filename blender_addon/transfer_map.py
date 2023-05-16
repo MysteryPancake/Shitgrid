@@ -13,7 +13,7 @@ from .utils import *
 
 # A scene consists of data blocks tagged with custom data.
 # These exist in a tree hierarchy of parent-child relationships.
-# We need to respect this hierarchy when updating data.
+# We need to respect the hierarchy when updating data blocks.
 # To achieve this, try to find roots and reconstruct from there.
 
 # Roots are the topmost collections/objects belonging to a tag.

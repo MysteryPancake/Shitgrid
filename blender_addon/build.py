@@ -19,8 +19,6 @@ class AssetBuilder:
 			raise NotADirectoryError(f"Missing {layer} folder: {wip_folder}")
 		# Sort by name to retrieve correct version order
 		versions = [os.path.join(wip_folder, f) for f in os.listdir(wip_folder) if f.endswith(".blend")]
-		if not versions:
-			raise FileNotFoundError(f"No versions for {layer} exist!")
 		return sorted(versions)
 
 	def __get_version(self, layer: str, version: int) -> SourceFile:
@@ -33,6 +31,8 @@ class AssetBuilder:
 
 	def __get_latest(self, layer: str) -> SourceFile:
 		versions = self.__get_versions(layer)
+		if not versions:
+			raise FileNotFoundError(f"No versions for {layer} exist!")
 		# SourceFile expects a version number starting at 1
 		return SourceFile(versions[-1], self.asset, layer, len(versions))
 
@@ -64,15 +64,16 @@ class AssetBuilder:
 		asset_data.catalog_id = self.uuid
 		asset_data.author = getpass.getuser()
 
-	# Version -1 loads the latest version
+	# Negative version loads the latest
 	def process(self, layer, version: int=-1) -> None:
 		path = self.__get_version(layer.folder, version) if version > 0 else self.__get_latest(layer.folder)
 		layer.process(path)
 
 	def __update_catalog(self, version: int) -> None:
-		# Update catalog manually
+		"""Manually updates the Blender Asset Library catalog file"""
 		catalog_path = os.path.join(self.blender_db, "build", "blender_assets.cats.txt")
 		catalog_exists = os.path.isfile(catalog_path)
+
 		with open(catalog_path, "a") as catalog:
 			if not catalog_exists:
 				# Write default content, requires a folder UUID for some reason

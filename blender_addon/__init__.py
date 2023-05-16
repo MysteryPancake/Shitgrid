@@ -14,12 +14,12 @@ bl_info = {
 	"category": "ALA",
 }
 
-# Show stuff in the "build" folder in the Asset Library
+# TODO: Find somewhere to put this (it won't run in register)
 def setup_asset_library() -> None:
 	blender_db = os.environ.get("SG_BLEND_DB")
 	build_folder = os.path.join(blender_db, "build")
 	prefs = bpy.context.preferences
-	lib_name = "Shitgrid Builds"
+	lib_name = "Asset Builds"
 
 	# Don't add the same library twice
 	for lib in prefs.filepaths.asset_libraries:
@@ -50,6 +50,12 @@ class Preferences(bpy.types.AddonPreferences):
 	def draw(self, context):
 		self.layout.prop(self, "dev_mode")
 
+# Properties for items displayed in the update list
+class Update_Item(bpy.types.PropertyGroup):
+	# Name property is built-in
+	outdated: bpy.props.BoolProperty(default=False)
+	checked: bpy.props.BoolProperty(default=True)
+
 # Properties for this plugin shown in the UI
 class Properties(bpy.types.PropertyGroup):
 	# Publish properties
@@ -58,6 +64,11 @@ class Properties(bpy.types.PropertyGroup):
 
 	# Fetch properties
 	fetch_asset: bpy.props.StringProperty(name="Asset Name")
+
+	# Update properties
+	update_items: bpy.props.CollectionProperty(type=Update_Item)
+	# Selected item index, required by Blender but unused since we use checkboxes
+	update_index: bpy.props.IntProperty()
 
 	# Developer properties
 	dev_make_folder: bpy.props.BoolProperty(name="(DEV) Make asset if missing")
@@ -125,15 +136,12 @@ class Publish_Operator(bpy.types.Operator):
 
 class Publish_Panel(bpy.types.Panel):
 	bl_label = "Publish"
-	bl_idname = "ALA_PT_Shitgrid_Publish"
+	bl_idname = "ALA_PT_Publish"
 	bl_space_type = "VIEW_3D"
 	bl_region_type = "UI"
 	bl_category = "Shitgrid"
 
 	def draw(self, context):
-		# This can't be done in register(), so dumping it here for now
-		setup_asset_library()
-
 		scn = context.scene
 		self.layout.prop(scn.sg_props, "publish_asset")
 		self.layout.prop(scn.sg_props, "publish_layer")
@@ -156,6 +164,15 @@ def get_selected_names(context):
 			names.add(name)
 	return names
 
+class Update_Operator(bpy.types.Operator):
+	"""Applies selected updates to assets"""
+	bl_idname = "pipeline.update"
+	bl_label = "Apply Updates"
+
+	def execute(self, context):
+		# TODO
+		return {"FINISHED"}
+
 class Check_Updates_Operator(bpy.types.Operator):
 	"""Check if asset updates are available"""
 	bl_idname = "pipeline.check_updates"
@@ -165,42 +182,86 @@ class Check_Updates_Operator(bpy.types.Operator):
 		blender_db = os.environ.get("SG_BLEND_DB")
 		name_set = get_selected_names(context)
 
+		# Clear previously listed updates
+		props = context.scene.sg_props
+		props.update_items.clear()
+
+		# List of outdated layer names per asset
+		updates = {}
+		for asset in name_set:
+			updates[asset] = set()
+
+		# Find outdated data blocks
 		for layer in listed_layers:
 			for data_type in layer.trigger_update:
 				for block in getattr(bpy.data, data_type):
+
 					asset = block.get("sg_asset")
 					# Blocks without sg_asset get skipped here too
 					if asset not in name_set:
 						continue
 
+					# Don't check outdated layers again
 					layer = block.get("sg_layer")
+					if layer in updates[asset]:
+						continue
+
 					folder = os.path.join(blender_db, "wip", asset, layer)
 					if not os.path.exists(folder):
 						continue
 
 					current = block.get("sg_version")
 					latest = len([p for p in os.listdir(folder) if p.endswith(".blend")])
-
-					print(f"Current: {current}, Latest: {latest}")
 					if latest > current:
-						print("OUT OF DATE")
+						updates[asset].add(layer)
+
+		# Build update list UI
+		for asset in name_set:
+			layer_set = updates[asset]
+			layers = ", ".join(layer_set) if layer_set else "Up to date"
+
+			# Add UI list entry
+			item = props.update_items.add()
+			item.name = f"{asset} ({layers})"
+			item.outdated = bool(layer_set)
 
 		return {"FINISHED"}
 
 class Update_Panel(bpy.types.Panel):
 	bl_label = "Update"
-	bl_idname = "ALA_PT_Shitgrid_Update"
+	bl_idname = "ALA_PT_Update"
 	bl_space_type = "VIEW_3D"
 	bl_region_type = "UI"
 	bl_category = "Shitgrid"
 
 	def draw(self, context):
+		props = context.scene.sg_props
 		name_set = get_selected_names(context)
 		names = ", ".join(name_set) if name_set else "None found"
 		label = names if context.selected_objects else f"All ({names})"
 
 		self.layout.label(text=f"Selected: {label}")
 		self.layout.operator(Check_Updates_Operator.bl_idname, icon="FILE_REFRESH")
+
+		if not props.update_items:
+			return
+
+		update_list = self.layout.box().column()
+		update_list.label(text="Available Updates:")
+		for item in props.update_items:
+			row = update_list.row(align=True)
+			row.alignment = "LEFT"
+			row.enabled = item.outdated
+			row.prop(
+				item,
+				"checked",
+				icon="CHECKBOX_HLT" if item.checked or not item.outdated else "CHECKBOX_DEHLT",
+				text="",
+				emboss=False
+			)
+			row.label(text=item.name)
+
+		self.layout.operator(Update_Operator.bl_idname, icon="UV_SYNC_SELECT")
 
 class Fetch_Operator(bpy.types.Operator):
 	"""Fetch the latest approved asset build"""
@@ -239,7 +300,7 @@ class Fetch_Operator(bpy.types.Operator):
 
 class Fetch_Panel(bpy.types.Panel):
 	bl_label = "Fetch"
-	bl_idname = "ALA_PT_Shitgrid_Fetch"
+	bl_idname = "ALA_PT_Fetch"
 	bl_space_type = "VIEW_3D"
 	bl_region_type = "UI"
 	bl_category = "Shitgrid"
@@ -281,7 +342,7 @@ class Dev_Build_Layer_Operator(bpy.types.Operator):
 
 class Build_Panel(bpy.types.Panel):
 	bl_label = "(DEV) Build"
-	bl_idname = "ALA_PT_Shitgrid_Build"
+	bl_idname = "ALA_PT_Build"
 	bl_space_type = "VIEW_3D"
 	bl_region_type = "UI"
 	bl_category = "Shitgrid"
@@ -301,8 +362,8 @@ class Build_Panel(bpy.types.Panel):
 # Dump all classes to register in here
 classes = [
 	Publish_Panel, Update_Panel, Fetch_Panel, Build_Panel,
-	Publish_Operator, Check_Updates_Operator, Fetch_Operator, Dev_Build_Base_Operator, Dev_Build_Layer_Operator,
-	Properties, Preferences
+	Publish_Operator, Check_Updates_Operator, Update_Operator, Fetch_Operator, Dev_Build_Base_Operator, Dev_Build_Layer_Operator,
+	Update_Item, Properties, Preferences
 ]
 
 def register() -> None:

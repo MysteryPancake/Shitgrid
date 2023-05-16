@@ -2,8 +2,8 @@ import bpy, mathutils, bmesh
 import numpy as np
 
 # Kitsu has lots of utilities for transferring data between objects
-# Rather than reinventing the wheel I stole everything below from their codebase :)
-# projects.blender.org/studio/blender-studio-pipeline/src/branch/main/scripts-blender/addons/asset_pipeline/docs/production_config_heist/task_layers.py
+# I stole everything below from their codebase :)
+# See projects.blender.org/studio/blender-studio-pipeline/src/branch/main/scripts-blender/addons/asset_pipeline/docs/production_config_heist/task_layers.py
 
 def match_topology(a: bpy.types.Object, b: bpy.types.Object) -> bool:
 	"""Checks if two objects have matching topology (efficiency over exactness)"""
