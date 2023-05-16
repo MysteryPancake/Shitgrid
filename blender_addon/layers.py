@@ -108,7 +108,7 @@ class LayerMaterials:
 					continue
 
 				topo_match = match_topology(obj_source, obj_target)
-				if not topo_match:  # TODO: Support trivial topology changes in more solid way than proximity transfer
+				if not topo_match:
 					print(f"Mismatching topology, falling back to proximity transfer. (Object '{obj_target.name}')")
 
 				# Transfer face data

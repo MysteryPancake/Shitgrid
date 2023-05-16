@@ -17,9 +17,6 @@ bl_info = {
 # Show stuff in the "build" folder in the Asset Library
 def setup_asset_library() -> None:
 	blender_db = os.environ.get("SG_BLEND_DB")
-	if not blender_db:
-		return
-
 	build_folder = os.path.join(blender_db, "build")
 	prefs = bpy.context.preferences
 	lib_name = "Shitgrid Builds"
@@ -88,14 +85,9 @@ class Publish_Operator(bpy.types.Operator):
 		props = context.scene.sg_props
 		blender_db = os.environ.get("SG_BLEND_DB")
 
-		if not blender_db:
-			self.report({"ERROR"}, "Missing environment variable SG_BLEND_DB!")
-			return {"CANCELLED"}
-
 		if not props.layer:
 			self.report({"ERROR_INVALID_INPUT"}, "Please select a layer!")
 			return {"CANCELLED"}
-
 		if not props.publish_asset:
 			self.report({"ERROR_INVALID_INPUT"}, "Please type in an asset!")
 			return {"CANCELLED"}
@@ -105,7 +97,7 @@ class Publish_Operator(bpy.types.Operator):
 			if props.dev_make_folder:
 				os.makedirs(wip_folder)
 			else:
-				self.report({"ERROR"}, f"Folder for {props.publish_asset} doesn't exist yet! Add it on the website.")
+				self.report({"ERROR"}, f"Folder for '{props.publish_asset}' doesn't exist yet! Add it on the website.")
 				return {"CANCELLED"}
 
 		# Structure is "master/wip/asset/layer/asset_layer_v001.blend" for now
@@ -207,23 +199,19 @@ class Fetch_Operator(bpy.types.Operator):
 		props = context.scene.sg_props
 		blender_db = os.environ.get("SG_BLEND_DB")
 
-		if not blender_db:
-			self.report({"ERROR"}, "Missing environment variable SG_BLEND_DB!")
-			return {"CANCELLED"}
-
 		if not props.fetch_asset:
 			self.report({"ERROR_INVALID_INPUT"}, "Please type in an asset!")
 			return {"CANCELLED"}
 
 		build_folder = os.path.join(blender_db, "build", props.fetch_asset)
 		if not os.path.exists(build_folder):
-			self.report({"ERROR"}, f"Build folder for {props.fetch_asset} doesn't exist yet!")
+			self.report({"ERROR"}, f"Build folder for '{props.fetch_asset}' doesn't exist yet!")
 			return {"CANCELLED"}
 
 		# Sort by name to retrieve correct version order
 		versions = sorted([os.path.join(build_folder, f) for f in os.listdir(build_folder) if f.endswith(".blend")])
 		if not versions:
-			self.report({"ERROR"}, f"Builds for {props.fetch_asset} don't exist yet!")
+			self.report({"ERROR"}, f"Builds for '{props.fetch_asset}' don't exist yet!")
 			return {"CANCELLED"}
 
 		# Assume top collection is the root we need to import
@@ -306,14 +294,20 @@ classes = [
 ]
 
 def register() -> None:
+	if not "SG_BLEND_DB" in os.environ:
+		print("ERROR: Missing environment variable SG_BLEND_DB!")
+		return
+
 	for cls in classes:
 		bpy.utils.register_class(cls)
+
 	scn = bpy.types.Scene
 	scn.sg_props = bpy.props.PointerProperty(type=Properties)
 
 def unregister() -> None:
 	scn = bpy.types.Scene
 	del scn.sg_props
+	
 	for cls in classes:
 		bpy.utils.unregister_class(cls)
 

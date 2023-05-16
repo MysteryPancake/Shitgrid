@@ -137,7 +137,7 @@ class TransferMap:
 		for category in target_data:
 			for target in target_data[category]:
 				if not category in source_data:
-					print("ERROR: Missing category " + category)
+					print(f"ERROR: Missing category '{category}'")
 					continue
 				
 				# We love O(n^2) complexity
@@ -150,10 +150,10 @@ class TransferMap:
 						source_item = source
 
 				if best_score >= 1:
-					print(f"Matched {target.data.name} with {source_item.data.name} ({best_score} score)")
+					print(f"Matched '{target.data.name}' with '{source_item.data.name}' ({best_score} score)")
 					matches[target.data] = source_item.data
 				else:
-					print(f"ERROR: Could not match {target.data.name} ({best_score} score)")
+					print(f"ERROR: Could not match '{target.data.name}' ({best_score} score)")
 
 		return matches
 
