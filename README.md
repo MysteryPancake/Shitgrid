@@ -1,6 +1,6 @@
 # Shitgrid
 
-Definitely not Kitsu!
+Definitely not Kitsu...
 
 ## Components
 
@@ -68,6 +68,7 @@ The Blender addon is written in Python.
 
 ### Blender Addon
 
-1. Open Blender Preferences
-2. Install the `plugin.py` file in the `blender_addon` folder
-3. Press `N` to open the menu
+1. Zip the contents of the `blender` folder
+2. Open Blender preferences
+3. Install the zipped folder as an addon
+4. Press `N` to open the menu
