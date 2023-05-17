@@ -50,20 +50,20 @@ from .utils import *
 
 class TransferMap:
 	# Unmatching or unlabelled items are assumed new
-	def __add_new(self, item: Any):
+	def __add_new(self, item: Any) -> None:
 		if type(item) == bpy.types.Collection:
-			self.new_cols.add(item)
+			self.new_cols.append(item)
 		else:
-			self.new_objs.add(item)
+			self.new_objs.append(item)
 	
 	# Matching items are stored for quick ID lookup
-	def __add_match(self, source: Any, target: Any):
+	def __add_match(self, source: Any, target: Any) -> None:
 		if type(source) == bpy.types.Collection:
 			self.matching_cols[source] = target
 		else:
 			self.matching_objs[source] = target
 
-	def __find_ids(self, data_blocks: list[Any], ids: dict[str, Any]) -> None:
+	def __find_ids(self, data_blocks: list[Any], ids: dict[str, list[Any]]) -> None:
 		for block in data_blocks:
 			name = block.get("sg_asset")
 			# Untagged blocks may be new
@@ -79,7 +79,12 @@ class TransferMap:
 			if not id:
 				self.__add_new(block)
 				continue
-			ids[id] = block
+			
+			# ID lists are used in case multiple blocks share the same ID
+			# This is invalid and should be handled when publishing
+			if id not in ids:
+				ids[id] = []
+			ids[id].append(block)
 
 	def __find_matches(self):
 		source_col = self.scene.collection
@@ -93,13 +98,16 @@ class TransferMap:
 		self.__find_ids(target_col.all_objects, target_ids)
 		self.__find_ids(target_col.children_recursive, target_ids)
 
+		# ID lists are used in case multiple blocks share the same ID
 		for source_id in source_ids:
-			source = source_ids[source_id]
+			sources: list[Any] = source_ids[source_id]
 			if source_id in target_ids:
-				target = target_ids[source_id]
-				self.__add_match(source, target)
+				targets: list[Any] = target_ids[source_id]
+				for i in range(len(sources)):
+					self.__add_match(sources[i], targets[min(i, len(targets) - 1)])
 			else:
-				self.__add_new(source)
+				for source in sources:
+					self.__add_new(source)
 
 	def __init__(self, file: SourceFile):
 		self.file = file
@@ -107,8 +115,8 @@ class TransferMap:
 		
 		self.matching_objs = {}
 		self.matching_cols = {}
-		self.new_objs = set()
-		self.new_cols = set()
+		self.new_objs = []
+		self.new_cols = []
 
 		print("========================================================")
 		print(f"Transferring {file.path}...")
