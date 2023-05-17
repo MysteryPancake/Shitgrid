@@ -1,5 +1,5 @@
+from typing import Union
 import bpy
-from difflib import SequenceMatcher as SM
 
 from .utils import *
 
@@ -43,13 +43,92 @@ from .utils import *
 # To find roots, TransferMap depth-first searches for matching tags.
 # Untagged children in our roots are considered part of us.
 
-# Next, Similarity finds similar data blocks with matching tags.
-# This makes it flexible to structural and naming changes.
-# This is huge overkill for most situations, but why not :)
+# Next, Similarity finds similar data blocks.
+# Update: I added UUIDs to the custom data, making this unnecessary.
+# I'll keep the old code here for now in case it's needed later.
 # =====================================================================
 
-class Similarity:
-	def __init__(self, data, depth: int, breadth: int):
+class TransferMap:
+	def __traverse_trees(
+		self,
+		data: dict[str, list[Union[bpy.types.Collection, bpy.types.Object]]],
+		col: bpy.types.Collection,
+		in_root=False
+	) -> None:
+		for child in col.children:
+			# Prevent loops influencing eachother
+			in_root_edit = in_root
+			child_name = child.get("sg_asset")
+			# Assume untagged children in our roots are part of us
+			if child_name:
+				# Only change root state when we hit a different asset
+				in_root_edit = child_name == self.file.name
+			if in_root_edit:
+				data["COLLECTION"].append(child)
+			# Depth-first search
+			self.__traverse_trees(data, child, in_root_edit)
+
+		# Same as above but for objects
+		for obj in col.objects:
+			in_root_edit = in_root
+			obj_name = obj.get("sg_asset")
+			if obj_name:
+				in_root_edit = obj_name == self.file.name
+			if in_root_edit:
+				if obj.type not in data:
+					data[obj.type] = []
+				data[obj.type].append(obj)
+	
+	def __find_matches(self):
+		source_data: dict[str, list[Union[bpy.types.Collection, bpy.types.Object]]] = {}
+		target_data: dict[str, list[Union[bpy.types.Collection, bpy.types.Object]]] = {}
+		self.__traverse_trees(source_data, self.scene.collection)
+		self.__traverse_trees(target_data, bpy.context.scene.collection)
+
+		matches = {}
+		for category in target_data:
+			for target in target_data[category]:
+
+				target_id = target.get("sg_id")
+				if not target_id:
+					print(f"ERROR: Missing target ID for '{target.name}'")
+					continue
+
+				if category not in source_data:
+					print(f"ERROR: Missing category '{category}'")
+					continue
+				
+				# We love O(n^2) complexity
+				for source in source_data[category]:
+					source_id = source.get("sg_id")
+					if source_id and source_id == target_id:
+						matches[target] = source
+						break
+
+		return matches
+
+	def __init__(self, file: SourceFile):
+		self.file = file
+		self.scene = load_scene(file.path)
+		print("========================================================")
+		print(f"Transferring {file.path}...")
+		
+	def close(self):
+		unload_scene(self.scene)
+		print(f"Finished transferring {self.file.path}")
+		print("========================================================")
+
+	# Used when calling "with TransferMap(...) as map:"
+	def __enter__(self):
+		return self.__find_matches()
+
+	def __exit__(self, exc_type, exc_value, exc_traceback):
+		self.close()
+
+"""
+class _Similarity:
+	# Fuzzy object matching. Currently obsolete due to UUIDs, but might come in handy later
+	def __init__(self, data: Union[bpy.types.Collection, bpy.types.Object], depth: int, breadth: int):
 		self.name = self.__clean_name(data.name)
 		self.data_count = self.__count_data(data)
 		self.data = data
@@ -64,11 +143,10 @@ class Similarity:
 		else:
 			return name
 
-	def __count_data(self, obj):
+	def __count_data(self, obj: Union[bpy.types.Collection, bpy.types.Object]):
 		# Only supported on objects for now
 		if type(obj) != bpy.types.Object:
 			return
-		# TODO: Support more object types
 		if obj.type == "MESH":
 			return [len(obj.data.vertices), len(obj.data.edges), len(obj.data.polygons)]
 		elif obj.type == "CURVE":
@@ -80,7 +158,7 @@ class Similarity:
 
 	def compare(self, other) -> float:
 		# Name similarity
-		score = SM(None, self.name, other.name).quick_ratio()
+		score = SequenceMatcher(None, self.name, other.name).quick_ratio()
 		# Tree depth similarity (Y axis)
 		score += self.__pow_diff(2.0, self.depth, other.depth) * 2.0
 		# Tree breadth similarity (X axis)
@@ -91,8 +169,15 @@ class Similarity:
 				score += self.__pow_diff(1.1, a, b)
 		return score
 
-class TransferMap:
-	def __traverse_trees(self, data, col: bpy.types.Collection, depth: int=0, in_root=False) -> None:
+class TransferMap_Old:
+	# Similarity variant of tree traversal
+	def __traverse_trees(
+		self,
+		data: dict[str, list[_Similarity]],
+		col: bpy.types.Collection,
+		depth: int=0,
+		in_root=False
+	) -> None:
 		breadth = 0
 		for child in col.children:
 			# Prevent loops influencing eachother
@@ -125,7 +210,7 @@ class TransferMap:
 				breadth += 1
 				if obj.type not in data:
 					data[obj.type] = []
-				data[obj.type].append(Similarity(obj, depth, breadth))
+				data[obj.type].append(_Similarity(obj, depth, breadth))
 
 	def __find_matches(self):
 		source_data = {}
@@ -142,14 +227,14 @@ class TransferMap:
 				
 				# We love O(n^2) complexity
 				best_score = 0
-				source_item = None
+				source_item: Optional[_Similarity] = None
 				for source in source_data[category]:
 					score = target.compare(source)
 					if score > best_score:
 						best_score = score
 						source_item = source
 
-				if best_score >= 1:
+				if source_item and best_score >= 1:
 					print(f"Matched '{target.data.name}' with '{source_item.data.name}' ({best_score} score)")
 					matches[target.data] = source_item.data
 				else:
@@ -163,14 +248,12 @@ class TransferMap:
 		print("========================================================")
 		print(f"Transferring {file.path}...")
 		
-	def close(self):
-		unload_scene(self.scene)
-		print(f"Finished transferring {self.file.path}")
-		print("========================================================")
-
 	# Used when calling "with TransferMap(...) as map:"
 	def __enter__(self):
 		return self.__find_matches()
 
 	def __exit__(self, exc_type, exc_value, exc_traceback):
-		self.close()
+		unload_scene(self.scene)
+		print(f"Finished transferring {self.file.path}")
+		print("========================================================")
+"""

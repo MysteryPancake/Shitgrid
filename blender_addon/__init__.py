@@ -1,4 +1,5 @@
 import bpy, os
+from uuid import uuid4
 
 from .build import AssetBuilder
 from .layers import *
@@ -39,6 +40,7 @@ def tag_data(data, name: str, layer: str, version: int) -> None:
 		data["sg_asset"] = name
 		data["sg_layer"] = layer
 		data["sg_version"] = version
+		data["sg_id"] = str(uuid4())
 	elif old_name == name and old_layer == layer:
 		# Updated data, change version
 		data["sg_version"] = version
@@ -356,7 +358,7 @@ class Build_Panel(bpy.types.Panel):
 		self.layout.operator(Dev_Build_Layer_Operator.bl_idname)
 
 	@classmethod
-	def poll(self, context):
+	def poll(cls, context):
 		return context.preferences.addons[__name__].preferences.dev_mode
 
 # Dump all classes to register in here

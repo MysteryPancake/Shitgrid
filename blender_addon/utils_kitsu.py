@@ -1,3 +1,4 @@
+from typing import Any, Optional
 import bpy, mathutils, bmesh
 import numpy as np
 
@@ -28,7 +29,7 @@ def match_topology(a: bpy.types.Object, b: bpy.types.Object) -> bool:
 			if len(spline1.points) != len(spline2.points):
 				return False
 		return True
-	return None
+	return False
 
 def copy_parenting(source_ob: bpy.types.Object, target_ob: bpy.types.Object) -> None:
 	"""Copy parenting data from one object to another."""
@@ -37,7 +38,7 @@ def copy_parenting(source_ob: bpy.types.Object, target_ob: bpy.types.Object) -> 
 	target_ob.parent_bone = source_ob.parent_bone
 	target_ob.matrix_parent_inverse = source_ob.matrix_parent_inverse.copy()
 
-def copy_attributes(a, b) -> None:
+def copy_attributes(a: Any, b: Any) -> None:
 	keys = dir(a)
 	for key in keys:
 		if (
@@ -56,8 +57,8 @@ def copy_attributes(a, b) -> None:
 def copy_driver(
 	source_fcurve: bpy.types.FCurve,
 	target_obj: bpy.types.Object,
-	data_path = None,
-	index = None,
+	data_path: Optional[str] = None,
+	index: Optional[str] = None,
 ) -> bpy.types.FCurve:
 	if not data_path:
 		data_path = source_fcurve.data_path

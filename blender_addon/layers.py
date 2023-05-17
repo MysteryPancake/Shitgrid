@@ -73,6 +73,8 @@ class LayerMaterials:
 	
 	@staticmethod
 	def process(file: SourceFile):
+		depsgraph = bpy.context.evaluated_depsgraph_get()
+		
 		with TransferMap(file) as lookup:
 			for obj_target, obj_source in lookup.items():
 
