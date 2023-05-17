@@ -112,20 +112,16 @@ class TransferMap:
 	def __init__(self, file: SourceFile):
 		self.file = file
 		self.scene = load_scene(file.path)
-		
 		self.matching_objs = {}
 		self.matching_cols = {}
 		self.new_objs = []
 		self.new_cols = []
-
-		print(f"Transferring {file.path}...")
 		self.__find_matches()
 		
 	def close(self):
 		unload_scene(self.scene)
-		print(f"Finished transferring {self.file.path}")
 
-	# Used when calling "with TransferMap(...) as map:"
+	# Used with "with TransferMap(...) as map:"
 	def __enter__(self):
 		return self
 
