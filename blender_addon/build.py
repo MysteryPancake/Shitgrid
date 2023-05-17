@@ -48,12 +48,7 @@ class AssetBuilder:
 		else:
 			root = bpy.data.collections.new(self.asset)
 			# Move children to new root collection
-			for col in base.children:
-				root.children.link(col)
-				base.children.unlink(col)
-			for obj in base.objects:
-				root.objects.link(obj)
-				base.objects.unlink(obj)
+			move_children(base, root)
 			# Add root collection to scene
 			base.children.link(root)
 

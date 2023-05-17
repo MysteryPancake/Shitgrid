@@ -17,6 +17,7 @@ bl_info = {
 
 # TODO: Find somewhere to put this (it won't run in register)
 def setup_asset_library() -> None:
+	"""Registers the build folder to display in the asset library"""
 	blender_db = os.environ.get("SG_BLEND_DB")
 	build_folder = os.path.join(blender_db, "build")
 	prefs = bpy.context.preferences
@@ -31,8 +32,8 @@ def setup_asset_library() -> None:
 	sg_lib = prefs.filepaths.asset_libraries[-1]
 	sg_lib.name = lib_name
 
-# Tags a data block with custom data used to link it with an asset, layer and version
 def tag_data(data, name: str, layer: str, version: int) -> None:
+	"""Tags a data block with custom data used to link it with an asset, layer and version"""
 	old_name = data.get("sg_asset")
 	old_layer = data.get("sg_layer")
 	if not old_name:
@@ -46,22 +47,23 @@ def tag_data(data, name: str, layer: str, version: int) -> None:
 		data["sg_version"] = version
 
 class Preferences(bpy.types.AddonPreferences):
+	"""Preferences for this addon"""
 	bl_idname = __name__
 	dev_mode: bpy.props.BoolProperty(name="Developer Mode", default=False)
 
 	def draw(self, context):
 		self.layout.prop(self, "dev_mode")
 
-# Properties for items displayed in the update list
 class Update_Item(bpy.types.PropertyGroup):
+	"""Properties for items displayed in the update list"""
 	# Name property is built-in
 	asset: bpy.props.StringProperty(name="Asset Name")
 	layers: bpy.props.CollectionProperty(type=bpy.types.PropertyGroup)
 	outdated: bpy.props.BoolProperty(default=False)
 	checked: bpy.props.BoolProperty(default=True)
 
-# Properties for this plugin shown in the UI
 class Properties(bpy.types.PropertyGroup):
+	"""Properties for this plugin shown in the UI"""
 	# Publish properties
 	publish_layer: bpy.props.EnumProperty(name="Layer", items=layer_menu)
 	publish_asset: bpy.props.StringProperty(name="Asset Name")
@@ -156,9 +158,9 @@ class Publish_Panel(bpy.types.Panel):
 
 		self.layout.operator(Publish_Operator.bl_idname, icon="EXPORT")
 
-def get_selected_names(context):
+def get_selected_assets(context):
+	"""Returns names of selected assets, or visible assets when none are selected"""
 	objects = context.selected_objects
-	# Use visible objects when none are selected
 	if not objects:
 		objects = context.visible_objects
 	names = set()
@@ -201,7 +203,7 @@ class Check_Updates_Operator(bpy.types.Operator):
 
 	def execute(self, context):
 		blender_db = os.environ.get("SG_BLEND_DB")
-		name_set = get_selected_names(context)
+		name_set = get_selected_assets(context)
 
 		# Clear previously listed updates
 		props = context.scene.sg_props
@@ -261,7 +263,7 @@ class Update_Panel(bpy.types.Panel):
 
 	def draw(self, context):
 		props = context.scene.sg_props
-		name_set = get_selected_names(context)
+		name_set = get_selected_assets(context)
 		names = ", ".join(name_set) if name_set else "None found"
 		label = names if context.selected_objects else f"All ({names})"
 

@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional, Union
 import bpy
 
 from .utils import *
@@ -50,33 +50,39 @@ from .utils import *
 
 class TransferMap:
 	def __add_new(self, item: Any) -> None:
+		"""Registers a new collection or object"""
 		if type(item) == bpy.types.Collection:
 			self.new_cols.append(item)
 		else:
 			self.new_objs.append(item)
 	
+	def __add_removed(self, item: Any) -> None:
+		"""Registers a deleted collection or object"""
+		if type(item) == bpy.types.Collection:
+			self.deleted_cols.append(item)
+		else:
+			self.deleted_objs.append(item)
+	
 	def __add_match(self, target: Any, source: Any) -> None:
+		"""Registers a matching collection or object"""
 		if type(source) == bpy.types.Collection:
 			self.matching_cols[target] = source
 		else:
 			self.matching_objs[target] = source
 
 	def __find_ids(self, data_blocks: list[Any], ids: dict[str, list[Any]]) -> None:
+		"""Builds a dict for checking whether an ID exists"""
 		for block in data_blocks:
 			name = block.get("sg_asset")
 			if not name:
-				# Could add to an "untagged" array
 				continue
-
 			# Ignore blocks outside our namespace
 			if name != self.file.name:
 				continue
 
 			id = block.get("sg_id")
 			if not id:
-				# Could add to an "untagged" array
 				continue
-			
 			# ID lists are used in case multiple blocks share the same ID
 			# This is invalid and should be handled when publishing
 			if id not in ids:
@@ -84,36 +90,125 @@ class TransferMap:
 			ids[id].append(block)
 
 	def __find_matches(self):
+		"""Finds new and existing collections and objects by ID matching"""
 		source_col = self.scene.collection
 		target_col = bpy.context.scene.collection
 
-		source_ids = {}
-		self.__find_ids(source_col.all_objects, source_ids)
-		self.__find_ids(source_col.children_recursive, source_ids)
+		# Find IDs in the other scene
+		self.__find_ids(source_col.all_objects, self.source_ids)
+		self.__find_ids(source_col.children_recursive, self.source_ids)
 
-		target_ids = {}
-		self.__find_ids(target_col.all_objects, target_ids)
-		self.__find_ids(target_col.children_recursive, target_ids)
+		# Find IDs in the current scene in case any changes occurred
+		self.__find_ids(target_col.all_objects, self.target_ids)
+		self.__find_ids(target_col.children_recursive, self.target_ids)
 
 		# ID lists are used in case multiple blocks share the same ID
-		for source_id in source_ids:
-			sources: list[Any] = source_ids[source_id]
-			if source_id in target_ids:
-				targets: list[Any] = target_ids[source_id]
+		for source_id in self.source_ids:
+			sources: list[Any] = self.source_ids[source_id]
+			if source_id in self.target_ids:
+				targets: list[Any] = self.target_ids[source_id]
 				for i in range(len(targets)):
 					self.__add_match(targets[i], sources[min(i, len(sources) - 1)])
 			else:
 				for source in sources:
 					self.__add_new(source)
 
-	def __init__(self, file: SourceFile):
+		# Find deleted data
+		for target_id in self.target_ids:
+			if target_id not in self.source_ids:
+				for target in self.target_ids[target_id]:
+					self.__add_removed(target)
+	
+	def __find_parents(self, col: bpy.types.Collection) -> None:
+		"""Finds parents of all child objects and collections in the other scene"""
+		for child in col.children:
+			if col != self.scene.collection:
+				self.parents[child] = col
+			self.__find_parents(child)
+		for obj in col.objects:
+			self.parents[obj] = col
+	
+	def __attempt_match(self, col: bpy.types.Collection) -> Optional[bpy.types.Collection]:
+		"""Tries to find a matching parent collection"""
+		col_id = col.get("sg_id")
+		if col_id and col_id in self.target_ids:
+			return self.target_ids[col_id][0]
+
+	def __self_reference_collection(self, col: bpy.types.Collection) -> None:
+		self.matching_cols[col] = col
+		col_id = col.get("sg_id")
+		if not col_id:
+			return
+		if col_id not in self.target_ids:
+			self.target_ids[col_id] = []
+		self.target_ids[col_id].append(col)
+	
+	def remove_deleted_collections(self) -> None:
+		"""Utility for removing deleted collections"""
+		for col in self.deleted_cols:
+			bpy.data.collections.remove(col)
+
+	def rebuild_collection_parents(self, obj: bpy.types.Object) -> bpy.types.Collection:
+		"""Reconstructs the collection hierarchy of an object"""
+		# Top-level objects don't need special treatment
+		if obj not in self.parents:
+			return bpy.context.collection
+
+		parent = self.parents[obj]
+		matching = self.__attempt_match(parent)
+		# We already have this collection, reuse it
+		if matching:
+			return matching
+		
+		# We don't, wipe and use the other one
+		wipe_collection(parent)
+		self.__self_reference_collection(parent)
+
+		# Reconstruct missing collections
+		above = parent
+		while above in self.parents:
+			# Scene Collection
+			# -> Above Collection
+			#   -> Below Collection
+			below = above
+			above = self.parents[above]
+
+			matching = self.__attempt_match(above)
+			if matching:
+				# We already have this collection, reuse it
+				matching.children.link(below)
+				return parent
+			
+			# We don't, wipe and use the other one
+			wipe_collection(above)
+			self.__self_reference_collection(above)
+			above.children.link(below)
+
+		# Made it all the way to the top
+		bpy.context.collection.children.link(above)
+		return parent
+
+	def __init__(self, file: SourceFile, find_parents: bool=False):
 		self.file = file
 		self.scene = load_scene(file.path)
-		self.matching_objs = {}
-		self.matching_cols = {}
-		self.new_objs = []
-		self.new_cols = []
+
+		self.matching_objs: dict[bpy.types.Object, bpy.types.Object] = {}
+		self.matching_cols: dict[bpy.types.Collection, bpy.types.Collection] = {}
+		self.new_objs: list[bpy.types.Object] = []
+		self.new_cols: list[bpy.types.Collection] = []
+		self.deleted_objs: list[bpy.types.Object] = []
+		self.deleted_cols: list[bpy.types.Collection] = []
+
+		self.source_ids: dict[str, list[Any]] = {}
+		self.target_ids: dict[str, list[Any]] = {}
 		self.__find_matches()
+
+		if find_parents:
+			self.parents: dict[
+				Union[bpy.types.Object, bpy.types.Collection],
+				Union[bpy.types.Object, bpy.types.Collection]
+			] = {}
+			self.__find_parents(self.scene.collection)
 		
 	def close(self):
 		unload_scene(self.scene)

@@ -31,6 +31,19 @@ def match_topology(a: bpy.types.Object, b: bpy.types.Object) -> bool:
 		return True
 	return False
 
+def copy_transform(source_ob: bpy.types.Object, target_ob: bpy.types.Object):
+	"""Transfers world transform data between objects"""
+	con_vis = []
+	for con in target_ob.constraints:
+		con_vis += [con.enabled]
+		con.enabled = False
+	for con in source_ob.constraints:
+		con.enabled = False
+
+	target_ob.matrix_world = source_ob.matrix_world
+	for con, vis in zip(target_ob.constraints, con_vis):
+		con.enabled = vis
+
 def copy_parenting(source_ob: bpy.types.Object, target_ob: bpy.types.Object) -> None:
 	"""Copy parenting data from one object to another."""
 	target_ob.parent = source_ob.parent

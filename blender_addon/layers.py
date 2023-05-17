@@ -46,7 +46,7 @@ class LayerBase:
 # ========================================================================
 class LayerModelling:
 	folder = "models"
-	label = "Modelling"
+	label = "Modelling (TODO)"
 	# Sub-object data blocks which could be part of this layer
 	trigger_update = [
 		"fonts", "lattices", "metaballs", "meshes", "volumes", "curves", "grease_pencils",
@@ -75,7 +75,7 @@ class LayerMaterials:
 	def process(file: SourceFile):
 		depsgraph = bpy.context.evaluated_depsgraph_get()
 		
-		with TransferMap(file) as lookup:
+		with TransferMap(file, False) as lookup:
 			for obj_target, obj_source in lookup.matching_objs.items():
 
 				# Wipe our material slots
@@ -207,7 +207,7 @@ class LayerMaterials:
 # ========================================================================
 class LayerGrooming:
 	folder = "grooms"
-	label = "Grooming"
+	label = "Grooming (TODO)"
 	# Sub-object data blocks which could be part of this layer
 	trigger_update = ["hair_curves"]
 
@@ -221,7 +221,7 @@ class LayerGrooming:
 # ========================================================================
 class LayerRigging:
 	folder = "rigs"
-	label = "Rigging"
+	label = "Rigging (TODO)"
 	# Sub-object data blocks which could be part of this layer
 	trigger_update = ["armatures", "shape_keys"]
 
@@ -235,7 +235,7 @@ class LayerRigging:
 # ========================================================================
 class LayerAssembly:
 	folder = "assembly"
-	label = "Assembly / Layout"
+	label = "Assembly / Layout (TODO)"
 	# Sub-object data blocks which could be part of this layer
 	trigger_update = ["cameras"]
 
@@ -249,7 +249,7 @@ class LayerAssembly:
 # ========================================================================
 class LayerAnimation:
 	folder = "anims"
-	label = "Animation"
+	label = "Animation (TODO)"
 	# Sub-object data blocks which could be part of this layer
 	trigger_update = ["actions", "shape_keys"]
 
@@ -258,10 +258,11 @@ class LayerAnimation:
 		print("TODO")
 		# TODO
 
-# ========================================================================
-# LIGHTING LAYER
-# ========================================================================
 class LayerLighting:
+	"""
+	LIGHTING LAYER
+	Transfers lights and adds new lights to the scene
+	"""
 	folder = "lights"
 	label = "Lighting"
 	# Sub-object data blocks which could be part of this layer
@@ -269,8 +270,31 @@ class LayerLighting:
 
 	@staticmethod
 	def process(file: SourceFile):
-		print("TODO")
-		# TODO
+		with TransferMap(file, True) as lookup:
+
+			# Transfer new lights
+			for obj in lookup.new_objs:
+				if obj.type != "LIGHT" and obj.type != "LIGHT_PROBE":
+					continue
+				# Rebuild collection hierarchy
+				parent = lookup.rebuild_collection_parents(obj)
+				parent.objects.link(obj)
+			
+			# Remove deleted lights
+			lookup.remove_deleted_collections()
+			for obj in lookup.deleted_objs:
+				if obj.type != "LIGHT" and obj.type != "LIGHT_PROBE":
+					continue
+				bpy.data.objects.remove(obj)
+			
+			# Transfer data between lights
+			for obj_target, obj_source in lookup.matching_objs.items():
+				if obj_target.type != "LIGHT" and obj_target.type != "LIGHT_PROBE":
+					continue
+				copy_transform(obj_source, obj_target)
+				copy_parenting(obj_source, obj_target)
+				copy_attributes(obj_source, obj_target)
+				copy_drivers(obj_source, obj_target)
 
 listed_layers = [LayerModelling, LayerMaterials, LayerGrooming, LayerRigging, LayerAssembly, LayerAnimation, LayerLighting]
 
