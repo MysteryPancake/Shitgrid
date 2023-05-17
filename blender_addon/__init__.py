@@ -55,6 +55,8 @@ class Preferences(bpy.types.AddonPreferences):
 # Properties for items displayed in the update list
 class Update_Item(bpy.types.PropertyGroup):
 	# Name property is built-in
+	asset: bpy.props.StringProperty(name="Asset Name")
+	layers: bpy.props.CollectionProperty(type=bpy.types.PropertyGroup)
 	outdated: bpy.props.BoolProperty(default=False)
 	checked: bpy.props.BoolProperty(default=True)
 
@@ -172,8 +174,25 @@ class Update_Operator(bpy.types.Operator):
 	bl_label = "Apply Updates"
 
 	def execute(self, context):
-		# TODO
-		return {"FINISHED"}
+		props = context.scene.sg_props
+		try:
+			for item in props.update_items:
+				# Skip unchecked items
+				if not item.checked or not item.outdated:
+					continue
+
+				builder = AssetBuilder(item.asset)
+				for layer in item.layers:
+					layer_obj = layer_lookup[layer.name]
+					builder.process(layer_obj, -1)
+					
+			# Clear update list for repopulation later
+			props.update_items.clear()
+			return {"FINISHED"}
+		
+		except Exception as err:
+			self.report({"ERROR"}, str(err))
+			return {"CANCELLED"}
 
 class Check_Updates_Operator(bpy.types.Operator):
 	"""Check if asset updates are available"""
@@ -188,8 +207,8 @@ class Check_Updates_Operator(bpy.types.Operator):
 		props = context.scene.sg_props
 		props.update_items.clear()
 
-		# List of outdated layer names per asset
-		updates = {}
+		# Outdated layer names per asset
+		updates: dict[str, set[Any]] = {}
 		for asset in name_set:
 			updates[asset] = set()
 
@@ -225,6 +244,10 @@ class Check_Updates_Operator(bpy.types.Operator):
 			# Add UI list entry
 			item = props.update_items.add()
 			item.name = f"{asset} ({layers})"
+			item.asset = asset
+			for layer_name in layer_set:
+				layer = item.layers.add()
+				layer.name = layer_name
 			item.outdated = bool(layer_set)
 
 		return {"FINISHED"}
@@ -336,7 +359,8 @@ class Dev_Build_Layer_Operator(bpy.types.Operator):
 		props = context.scene.sg_props
 		try:
 			builder = AssetBuilder(props.dev_build_asset)
-			builder.process(layer_lookup[props.dev_build_layer], props.dev_build_version)
+			layer = layer_lookup[props.dev_build_layer]
+			builder.process(layer, props.dev_build_version)
 			return {"FINISHED"}
 		except Exception as err:
 			self.report({"ERROR"}, str(err))

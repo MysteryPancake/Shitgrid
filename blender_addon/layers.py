@@ -76,7 +76,7 @@ class LayerMaterials:
 		depsgraph = bpy.context.evaluated_depsgraph_get()
 		
 		with TransferMap(file) as lookup:
-			for obj_source, obj_target in lookup.matching_objs.items():
+			for obj_target, obj_source in lookup.matching_objs.items():
 
 				# Wipe our material slots
 				while len(obj_target.material_slots) > len(obj_source.material_slots):

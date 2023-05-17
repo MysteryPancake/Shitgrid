@@ -57,11 +57,11 @@ class TransferMap:
 			self.new_objs.append(item)
 	
 	# Matching items are stored for quick ID lookup
-	def __add_match(self, source: Any, target: Any) -> None:
+	def __add_match(self, target: Any, source: Any) -> None:
 		if type(source) == bpy.types.Collection:
-			self.matching_cols[source] = target
+			self.matching_cols[target] = source
 		else:
-			self.matching_objs[source] = target
+			self.matching_objs[target] = source
 
 	def __find_ids(self, data_blocks: list[Any], ids: dict[str, list[Any]]) -> None:
 		for block in data_blocks:
@@ -103,8 +103,8 @@ class TransferMap:
 			sources: list[Any] = source_ids[source_id]
 			if source_id in target_ids:
 				targets: list[Any] = target_ids[source_id]
-				for i in range(len(sources)):
-					self.__add_match(sources[i], targets[min(i, len(targets) - 1)])
+				for i in range(len(targets)):
+					self.__add_match(targets[i], sources[min(i, len(sources) - 1)])
 			else:
 				for source in sources:
 					self.__add_new(source)
@@ -118,15 +118,12 @@ class TransferMap:
 		self.new_objs = []
 		self.new_cols = []
 
-		print("========================================================")
 		print(f"Transferring {file.path}...")
-
 		self.__find_matches()
 		
 	def close(self):
 		unload_scene(self.scene)
 		print(f"Finished transferring {self.file.path}")
-		print("========================================================")
 
 	# Used when calling "with TransferMap(...) as map:"
 	def __enter__(self):
