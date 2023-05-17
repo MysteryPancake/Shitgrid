@@ -49,14 +49,12 @@ from .utils import *
 # =====================================================================
 
 class TransferMap:
-	# Unmatching or unlabelled items are assumed new
 	def __add_new(self, item: Any) -> None:
 		if type(item) == bpy.types.Collection:
 			self.new_cols.append(item)
 		else:
 			self.new_objs.append(item)
 	
-	# Matching items are stored for quick ID lookup
 	def __add_match(self, target: Any, source: Any) -> None:
 		if type(source) == bpy.types.Collection:
 			self.matching_cols[target] = source
@@ -66,9 +64,8 @@ class TransferMap:
 	def __find_ids(self, data_blocks: list[Any], ids: dict[str, list[Any]]) -> None:
 		for block in data_blocks:
 			name = block.get("sg_asset")
-			# Untagged blocks may be new
 			if not name:
-				self.__add_new(block)
+				# Could add to an "untagged" array
 				continue
 
 			# Ignore blocks outside our namespace
@@ -77,7 +74,7 @@ class TransferMap:
 
 			id = block.get("sg_id")
 			if not id:
-				self.__add_new(block)
+				# Could add to an "untagged" array
 				continue
 			
 			# ID lists are used in case multiple blocks share the same ID
