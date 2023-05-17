@@ -1,7 +1,10 @@
-from typing import Union
+from typing import Any
 import bpy
 
 from .utils import *
+
+# UPDATE: I added UUIDs, making the explanation below outdated.
+# I'll keep the old code commented here for now.
 
 # =====================================================================
 # What the hell does this code do? Great question!
@@ -42,76 +45,75 @@ from .utils import *
 # I wanted to keep this flexible, so roots can be moved and renamed.
 # To find roots, TransferMap depth-first searches for matching tags.
 # Untagged children in our roots are considered part of us.
-
 # Next, Similarity finds similar data blocks.
-# Update: I added UUIDs to the custom data, making this unnecessary.
-# I'll keep the old code here for now in case it's needed later.
 # =====================================================================
 
 class TransferMap:
-	def __traverse_trees(
-		self,
-		data: dict[str, list[Union[bpy.types.Collection, bpy.types.Object]]],
-		col: bpy.types.Collection,
-		in_root=False
-	) -> None:
-		for child in col.children:
-			# Prevent loops influencing eachother
-			in_root_edit = in_root
-			child_name = child.get("sg_asset")
-			# Assume untagged children in our roots are part of us
-			if child_name:
-				# Only change root state when we hit a different asset
-				in_root_edit = child_name == self.file.name
-			if in_root_edit:
-				data["COLLECTION"].append(child)
-			# Depth-first search
-			self.__traverse_trees(data, child, in_root_edit)
-
-		# Same as above but for objects
-		for obj in col.objects:
-			in_root_edit = in_root
-			obj_name = obj.get("sg_asset")
-			if obj_name:
-				in_root_edit = obj_name == self.file.name
-			if in_root_edit:
-				if obj.type not in data:
-					data[obj.type] = []
-				data[obj.type].append(obj)
+	# Unmatching or unlabelled items are assumed new
+	def __add_new(self, item: Any):
+		if type(item) == bpy.types.Collection:
+			self.new_cols.add(item)
+		else:
+			self.new_objs.add(item)
 	
+	# Matching items are stored for quick ID lookup
+	def __add_match(self, source: Any, target: Any):
+		if type(source) == bpy.types.Collection:
+			self.matching_cols[source] = target
+		else:
+			self.matching_objs[source] = target
+
+	def __find_ids(self, data_blocks: list[Any], ids: dict[str, Any]) -> None:
+		for block in data_blocks:
+			name = block.get("sg_asset")
+			# Untagged blocks may be new
+			if not name:
+				self.__add_new(block)
+				continue
+
+			# Ignore blocks outside our namespace
+			if name != self.file.name:
+				continue
+
+			id = block.get("sg_id")
+			if not id:
+				self.__add_new(block)
+				continue
+			ids[id] = block
+
 	def __find_matches(self):
-		source_data: dict[str, list[Union[bpy.types.Collection, bpy.types.Object]]] = {}
-		target_data: dict[str, list[Union[bpy.types.Collection, bpy.types.Object]]] = {}
-		self.__traverse_trees(source_data, self.scene.collection)
-		self.__traverse_trees(target_data, bpy.context.scene.collection)
+		source_col = self.scene.collection
+		target_col = bpy.context.scene.collection
 
-		matches = {}
-		for category in target_data:
-			for target in target_data[category]:
+		source_ids = {}
+		self.__find_ids(source_col.all_objects, source_ids)
+		self.__find_ids(source_col.children_recursive, source_ids)
 
-				target_id = target.get("sg_id")
-				if not target_id:
-					print(f"ERROR: Missing target ID for '{target.name}'")
-					continue
+		target_ids = {}
+		self.__find_ids(target_col.all_objects, target_ids)
+		self.__find_ids(target_col.children_recursive, target_ids)
 
-				if category not in source_data:
-					print(f"ERROR: Missing category '{category}'")
-					continue
-				
-				# We love O(n^2) complexity
-				for source in source_data[category]:
-					source_id = source.get("sg_id")
-					if source_id and source_id == target_id:
-						matches[target] = source
-						break
-
-		return matches
+		for source_id in source_ids:
+			source = source_ids[source_id]
+			if source_id in target_ids:
+				target = target_ids[source_id]
+				self.__add_match(source, target)
+			else:
+				self.__add_new(source)
 
 	def __init__(self, file: SourceFile):
 		self.file = file
 		self.scene = load_scene(file.path)
+		
+		self.matching_objs = {}
+		self.matching_cols = {}
+		self.new_objs = set()
+		self.new_cols = set()
+
 		print("========================================================")
 		print(f"Transferring {file.path}...")
+
+		self.__find_matches()
 		
 	def close(self):
 		unload_scene(self.scene)
@@ -120,7 +122,7 @@ class TransferMap:
 
 	# Used when calling "with TransferMap(...) as map:"
 	def __enter__(self):
-		return self.__find_matches()
+		return self
 
 	def __exit__(self, exc_type, exc_value, exc_traceback):
 		self.close()
