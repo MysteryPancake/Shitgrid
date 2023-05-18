@@ -48,7 +48,7 @@ class LayerModelling:
 	TODO
 	"""
 	folder = "models"
-	label = "Modelling (TODO)"
+	label = "(TODO) Modelling"
 	# Sub-object data blocks which could be part of this layer
 	trigger_update = [
 		"fonts", "lattices", "metaballs", "meshes", "volumes", "curves", "grease_pencils",
@@ -213,7 +213,7 @@ class LayerGrooming:
 	TODO
 	"""
 	folder = "grooms"
-	label = "Grooming (TODO)"
+	label = "(TODO) Grooming"
 	# Sub-object data blocks which could be part of this layer
 	trigger_update = ["hair_curves"]
 
@@ -228,7 +228,7 @@ class LayerRigging:
 	TODO
 	"""
 	folder = "rigs"
-	label = "Rigging (TODO)"
+	label = "(TODO) Rigging"
 	# Sub-object data blocks which could be part of this layer
 	trigger_update = ["armatures", "shape_keys"]
 
@@ -243,7 +243,7 @@ class LayerAssembly:
 	TODO
 	"""
 	folder = "assembly"
-	label = "Assembly / Layout (TODO)"
+	label = "(TODO) Assembly / Layout"
 	# Sub-object data blocks which could be part of this layer
 	trigger_update = ["cameras"]
 
@@ -258,7 +258,7 @@ class LayerAnimation:
 	TODO
 	"""
 	folder = "anims"
-	label = "Animation (TODO)"
+	label = "(TODO) Animation"
 	# Sub-object data blocks which could be part of this layer
 	trigger_update = ["actions", "shape_keys"]
 

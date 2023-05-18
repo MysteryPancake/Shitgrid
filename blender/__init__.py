@@ -57,7 +57,8 @@ class Preferences(bpy.types.AddonPreferences):
 	dev_mode: bpy.props.BoolProperty(name="Developer Mode", default=False)
 
 	def draw(self, context):
-		self.layout.prop(self, "dev_mode")
+		layout = self.layout
+		layout.prop(self, "dev_mode")
 
 class Update_Item(bpy.types.PropertyGroup):
 	"""Properties for items displayed in the update list"""
@@ -82,8 +83,8 @@ class Properties(bpy.types.PropertyGroup):
 	# Developer properties
 	dev_make_folder: bpy.props.BoolProperty(name="(DEV) Make asset if missing")
 	dev_build_asset: bpy.props.StringProperty(name="Asset Name")
-	dev_build_version: bpy.props.IntProperty(name="Layer Version", default=1)
 	dev_build_layer: bpy.props.EnumProperty(name="Layer", items=layer_menu)
+	dev_build_version: bpy.props.IntProperty(name="Version", default=1)
 
 class Publish_Operator(bpy.types.Operator):
 	"""Save and increment the version of the above assets"""
@@ -152,14 +153,12 @@ class Publish_Panel(bpy.types.Panel):
 
 	def draw(self, context):
 		scn = context.scene
-		self.layout.prop(scn.sg_props, "publish_asset")
-		self.layout.prop(scn.sg_props, "publish_layer")
-
-		# Developer-only option
+		layout = self.layout
 		if context.preferences.addons[__name__].preferences.dev_mode:
-			self.layout.prop(scn.sg_props, "dev_make_folder")
-
-		self.layout.operator(Publish_Operator.bl_idname, icon="EXPORT")
+			layout.prop(scn.sg_props, "dev_make_folder")
+		layout.prop(scn.sg_props, "publish_asset")
+		layout.prop(scn.sg_props, "publish_layer")
+		layout.operator(Publish_Operator.bl_idname, icon="EXPORT")
 
 def get_selected_assets(context):
 	"""Returns names of selected assets, or visible assets when none are selected"""
@@ -173,36 +172,10 @@ def get_selected_assets(context):
 			names.add(name)
 	return names
 
-class Update_Operator(bpy.types.Operator):
-	"""Apply selected updates to assets"""
-	bl_idname = "pipeline.update"
-	bl_label = "Apply Updates"
-
-	def execute(self, context):
-		props = context.scene.sg_props
-		try:
-			for item in props.update_items:
-				# Skip unchecked items
-				if not item.checked or not item.outdated:
-					continue
-
-				builder = AssetBuilder(item.asset)
-				for layer in item.layers:
-					layer_obj = layer_lookup[layer.name]
-					builder.process(layer_obj, -1)
-					
-			# Clear update list for repopulation later
-			props.update_items.clear()
-			return {"FINISHED"}
-		
-		except Exception as err:
-			self.report({"ERROR"}, str(err))
-			return {"CANCELLED"}
-
 class Check_Updates_Operator(bpy.types.Operator):
 	"""Check if asset updates are available"""
 	bl_idname = "pipeline.check_updates"
-	bl_label = "Check for Asset Updates"
+	bl_label = "Check for Updates"
 
 	def execute(self, context):
 		blender_db = os.environ.get("SG_BLEND_DB")
@@ -257,6 +230,41 @@ class Check_Updates_Operator(bpy.types.Operator):
 
 		return {"FINISHED"}
 
+class Update_Operator(bpy.types.Operator):
+	"""Apply selected updates to assets"""
+	bl_idname = "pipeline.update"
+	bl_label = "Apply Updates"
+
+	def execute(self, context):
+		props = context.scene.sg_props
+		try:
+			for item in props.update_items:
+				# Skip unchecked items
+				if not item.checked or not item.outdated:
+					continue
+
+				builder = AssetBuilder(item.asset)
+				for layer in item.layers:
+					layer_obj = layer_lookup[layer.name]
+					builder.process(layer_obj, -1)
+					
+			props.update_items.clear()
+			return {"FINISHED"}
+		
+		except Exception as err:
+			self.report({"ERROR"}, str(err))
+			return {"CANCELLED"}
+
+class Update_Close_Operator(bpy.types.Operator):
+	"""Close updates list"""
+	bl_idname = "pipeline.close_update"
+	bl_label = "Close"
+
+	def execute(self, context):
+		props = context.scene.sg_props
+		props.update_items.clear()
+		return {"FINISHED"}
+
 class Update_Panel(bpy.types.Panel):
 	bl_label = "Update"
 	bl_idname = "ALA_PT_Update"
@@ -265,22 +273,31 @@ class Update_Panel(bpy.types.Panel):
 	bl_category = "Shitgrid"
 
 	def draw(self, context):
+		layout = self.layout
 		props = context.scene.sg_props
+
+		# List of selected assets
 		name_set = get_selected_assets(context)
 		names = ", ".join(name_set) if name_set else "None found"
 		label = names if context.selected_objects else f"All ({names})"
+		layout.label(text=f"Selected: {label}")
 
-		self.layout.label(text=f"Selected: {label}")
-		self.layout.operator(Check_Updates_Operator.bl_idname, icon="FILE_REFRESH")
+		# Check updates and close button
+		if props.update_items:
+			layout.operator(Update_Close_Operator.bl_idname, icon="PANEL_CLOSE")
+		elif name_set:
+			layout.operator(Check_Updates_Operator.bl_idname, icon="FILE_REFRESH")
 
 		if not props.update_items:
 			return
-
-		update_list = self.layout.box().column()
-		update_list.label(text="Available Updates:")
+		
+		# List of available updates
+		outdated = False
+		update_list = layout.box().column()
+		update_list.label(text="Update Status:")
 		for item in props.update_items:
-			row = update_list.row(align=True)
-			row.alignment = "LEFT"
+			outdated = outdated or item.outdated
+			row = update_list.row()
 			row.enabled = item.outdated
 			row.prop(
 				item,
@@ -291,7 +308,9 @@ class Update_Panel(bpy.types.Panel):
 			)
 			row.label(text=item.name)
 
-		self.layout.operator(Update_Operator.bl_idname, icon="UV_SYNC_SELECT")
+		# Update button
+		if outdated:
+			layout.operator(Update_Operator.bl_idname, icon="SORT_ASC")
 
 class Fetch_Operator(bpy.types.Operator):
 	"""Fetch the latest approved asset build"""
@@ -337,8 +356,9 @@ class Fetch_Panel(bpy.types.Panel):
 
 	def draw(self, context):
 		scn = context.scene
-		self.layout.prop(scn.sg_props, "fetch_asset")
-		self.layout.operator(Fetch_Operator.bl_idname, icon="IMPORT")
+		layout = self.layout
+		layout.prop(scn.sg_props, "fetch_asset")
+		layout.operator(Fetch_Operator.bl_idname, icon="IMPORT")
 
 class Dev_Build_Base_Operator(bpy.types.Operator):
 	"""Load clean base geometry from modelling"""
@@ -347,6 +367,9 @@ class Dev_Build_Base_Operator(bpy.types.Operator):
 
 	def execute(self, context):
 		props = context.scene.sg_props
+		if not props.dev_build_asset:
+			self.report({"ERROR_INVALID_INPUT"}, "Please type in an asset!")
+			return {"CANCELLED"}
 		try:
 			builder = AssetBuilder(props.dev_build_asset)
 			builder.process(LayerBase, props.dev_build_version)
@@ -362,6 +385,9 @@ class Dev_Build_Layer_Operator(bpy.types.Operator):
 	
 	def execute(self, context):
 		props = context.scene.sg_props
+		if not props.dev_build_asset:
+			self.report({"ERROR_INVALID_INPUT"}, "Please type in an asset!")
+			return {"CANCELLED"}
 		try:
 			builder = AssetBuilder(props.dev_build_asset)
 			layer = layer_lookup[props.dev_build_layer]
@@ -380,11 +406,16 @@ class Build_Panel(bpy.types.Panel):
 
 	def draw(self, context):
 		scn = context.scene
-		self.layout.prop(scn.sg_props, "dev_build_asset")
-		self.layout.prop(scn.sg_props, "dev_build_version")
-		self.layout.operator(Dev_Build_Base_Operator.bl_idname)
-		self.layout.prop(scn.sg_props, "dev_build_layer")
-		self.layout.operator(Dev_Build_Layer_Operator.bl_idname)
+		layout = self.layout
+
+		layout.use_property_split = True
+		layout.use_property_decorate = False
+		
+		layout.prop(scn.sg_props, "dev_build_asset")
+		layout.prop(scn.sg_props, "dev_build_layer")
+		layout.prop(scn.sg_props, "dev_build_version")
+		layout.operator(Dev_Build_Base_Operator.bl_idname)
+		layout.operator(Dev_Build_Layer_Operator.bl_idname)
 
 	@classmethod
 	def poll(cls, context):
@@ -393,7 +424,8 @@ class Build_Panel(bpy.types.Panel):
 # Dump all classes to register in here
 classes = [
 	Publish_Panel, Update_Panel, Fetch_Panel, Build_Panel,
-	Publish_Operator, Check_Updates_Operator, Update_Operator, Fetch_Operator, Dev_Build_Base_Operator, Dev_Build_Layer_Operator,
+	Publish_Operator, Check_Updates_Operator, Update_Operator, Update_Close_Operator,
+	Fetch_Operator, Dev_Build_Base_Operator, Dev_Build_Layer_Operator,
 	Update_Item, Properties, Preferences
 ]
 
