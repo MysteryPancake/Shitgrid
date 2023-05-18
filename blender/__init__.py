@@ -68,7 +68,7 @@ class Update_Item(bpy.types.PropertyGroup):
 	checked: bpy.props.BoolProperty(default=True)
 
 class Properties(bpy.types.PropertyGroup):
-	"""Properties for this plugin shown in the UI"""
+	"""Properties shown in the UI panel"""
 	# Publish properties
 	publish_layer: bpy.props.EnumProperty(name="Layer", items=layer_menu)
 	publish_asset: bpy.props.StringProperty(name="Asset Name")
@@ -78,8 +78,6 @@ class Properties(bpy.types.PropertyGroup):
 
 	# Update properties
 	update_items: bpy.props.CollectionProperty(type=Update_Item)
-	# Selected item index, required by Blender but unused since we use checkboxes
-	update_index: bpy.props.IntProperty()
 
 	# Developer properties
 	dev_make_folder: bpy.props.BoolProperty(name="(DEV) Make asset if missing")
@@ -176,7 +174,7 @@ def get_selected_assets(context):
 	return names
 
 class Update_Operator(bpy.types.Operator):
-	"""Applies selected updates to assets"""
+	"""Apply selected updates to assets"""
 	bl_idname = "pipeline.update"
 	bl_label = "Apply Updates"
 
@@ -343,7 +341,7 @@ class Fetch_Panel(bpy.types.Panel):
 		self.layout.operator(Fetch_Operator.bl_idname, icon="IMPORT")
 
 class Dev_Build_Base_Operator(bpy.types.Operator):
-	"""Loads clean base geometry from modelling"""
+	"""Load clean base geometry from modelling"""
 	bl_idname = "pipeline.build_base"
 	bl_label = "Load Base Geometry"
 
@@ -358,7 +356,7 @@ class Dev_Build_Base_Operator(bpy.types.Operator):
 			return {"CANCELLED"}
 
 class Dev_Build_Layer_Operator(bpy.types.Operator):
-	"""Transfers data from the selected layer onto the asset"""
+	"""Transfer data from the selected layer onto the asset"""
 	bl_idname = "pipeline.build_layer"
 	bl_label = "Build Selected Layer"
 	
