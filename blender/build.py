@@ -30,6 +30,9 @@ class AssetBuilder:
 		"""Returns a layer file with a specific version"""
 
 		versions = self.__get_versions(layer)
+		if not versions:
+			raise FileNotFoundError(f"No versions for {layer} exist!")
+		
 		num_versions = len(versions)
 		if version <= 0 or version > num_versions:
 			raise IndexError(f"Version {version} is out of range! Max is {num_versions}")

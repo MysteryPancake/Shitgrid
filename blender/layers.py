@@ -264,7 +264,7 @@ class LayerLighting:
 	folder = "lights"
 	label = "Lighting"
 	# Sub-object data blocks which could be part of this layer
-	trigger_update = ["lights", "lightprobes"]
+	trigger_update = ["lights", "lightprobes", "worlds"]
 
 	@staticmethod
 	def process(file: SourceFile):
@@ -293,6 +293,9 @@ class LayerLighting:
 				copy_parenting(obj_source, obj_target)
 				copy_attributes(obj_source, obj_target)
 				copy_drivers(obj_source, obj_target)
+			
+			# Transfer world (copy_attributes doesn't work for some reason)
+			bpy.context.scene.world = map.scene.world
 
 listed_layers = [LayerModelling, LayerMaterials, LayerGrooming, LayerRigging, LayerAssembly, LayerAnimation, LayerLighting]
 
