@@ -4,7 +4,7 @@ import numpy as np
 
 # Kitsu has lots of utilities for transferring data between objects
 # I stole everything below from their codebase :)
-# See projects.blender.org/studio/blender-studio-pipeline/src/branch/main/scripts-blender/addons/asset_pipeline/docs/production_config_heist/task_layers.py
+# projects.blender.org/studio/blender-studio-pipeline/src/branch/main/scripts-blender/addons/asset_pipeline/docs/production_config_heist/task_layers.py
 
 def match_topology(a: bpy.types.Object, b: bpy.types.Object) -> bool:
 	"""Checks if two objects have matching topology (efficiency over exactness)"""

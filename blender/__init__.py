@@ -33,7 +33,12 @@ def setup_asset_library() -> None:
 	sg_lib.name = lib_name
 
 def tag_data(data, name: str, layer: str, version: int) -> None:
-	"""Tags a data block with custom data used to link it with an asset, layer and version"""
+	"""
+	Tags a data block with custom data.\n
+	This is used to associate everything with an asset, layer and version.\n
+	`sg_id` is used for matching. Try to avoid duplicate IDs.\n
+	When IDs are duplicated, it links by order.
+	"""
 	old_name = data.get("sg_asset")
 	old_layer = data.get("sg_layer")
 	if not old_name:

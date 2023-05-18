@@ -4,12 +4,13 @@ from .transfer_map import TransferMap
 from .utils import *
 from .utils_kitsu import *
 
-# ========================================================================
-# BASE LAYER
-# The deepest build layer, unlisted and only used when headlessly building
-# Rips stuff from modelling without materials, rigs, etc
-# ========================================================================
 class LayerBase:
+	"""
+	# BASE LAYER
+	The deepest build layer, unlisted and only used when headlessly building.\n
+	Rips stuff from modelling without materials, rigs, etc.\n
+	This will be obsolete and removed once LayerModelling is done.
+	"""
 	folder = "models"
 	blacklist = {"LIGHT", "LIGHT_PROBE", "ARMATURE", "CAMERA", "SPEAKER"}
 
@@ -41,10 +42,11 @@ class LayerBase:
 		# Done copying, remove the imported scene
 		unload_scene(scene)
 
-# ========================================================================
-# MODELLING LAYER
-# ========================================================================
 class LayerModelling:
+	"""
+	# MODELLING LAYER
+	TODO
+	"""
 	folder = "models"
 	label = "Modelling (TODO)"
 	# Sub-object data blocks which could be part of this layer
@@ -59,11 +61,14 @@ class LayerModelling:
 		# TODO
 
 # ========================================================================
-# MATERIALS LAYER
-# Transfers materials and UVs between source and target objects
-# Mostly stolen from Kitsu's codebase :)
+
 # ========================================================================
 class LayerMaterials:
+	"""
+	# MATERIALS LAYER
+	Transfers materials and UVs between source and target objects.\n
+	I stole all the transferring code from Kitsu :)
+	"""
 	folder = "materials"
 	label = "Surfacing / UVs"
 	# Sub-object data blocks which could be part of this layer
@@ -74,9 +79,9 @@ class LayerMaterials:
 	@staticmethod
 	def process(file: SourceFile):
 		depsgraph = bpy.context.evaluated_depsgraph_get()
-		
-		with TransferMap(file, False) as lookup:
-			for obj_target, obj_source in lookup.matching_objs.items():
+
+		with TransferMap(file, False) as map:
+			for obj_target, obj_source in map.matching_objs.items():
 
 				# Wipe our material slots
 				while len(obj_target.material_slots) > len(obj_source.material_slots):
@@ -202,10 +207,11 @@ class LayerMaterials:
 							mslot.material.node_tree.nodes.active = node
 							break
 
-# ========================================================================
-# GROOMING LAYER
-# ========================================================================
 class LayerGrooming:
+	"""
+	# GROOMING LAYER
+	TODO
+	"""
 	folder = "grooms"
 	label = "Grooming (TODO)"
 	# Sub-object data blocks which could be part of this layer
@@ -216,10 +222,11 @@ class LayerGrooming:
 		print("TODO")
 		# TODO
 
-# ========================================================================
-# RIGGING LAYER
-# ========================================================================
 class LayerRigging:
+	"""
+	# RIGGING LAYER
+	TODO
+	"""
 	folder = "rigs"
 	label = "Rigging (TODO)"
 	# Sub-object data blocks which could be part of this layer
@@ -230,10 +237,11 @@ class LayerRigging:
 		print("TODO")
 		# TODO
 
-# ========================================================================
-# ASSEMBLY LAYER
-# ========================================================================
 class LayerAssembly:
+	"""
+	# ASSEMBLY LAYER
+	TODO
+	"""
 	folder = "assembly"
 	label = "Assembly / Layout (TODO)"
 	# Sub-object data blocks which could be part of this layer
@@ -244,10 +252,11 @@ class LayerAssembly:
 		print("TODO")
 		# TODO
 
-# ========================================================================
-# ANIMATIONS LAYER
-# ========================================================================
 class LayerAnimation:
+	"""
+	# ANIMATION LAYER
+	TODO
+	"""
 	folder = "anims"
 	label = "Animation (TODO)"
 	# Sub-object data blocks which could be part of this layer
@@ -260,8 +269,9 @@ class LayerAnimation:
 
 class LayerLighting:
 	"""
-	LIGHTING LAYER
-	Transfers lights and adds new lights to the scene
+	# LIGHTING LAYER
+	Adds, removes and transfers lights into the current scene.\n
+	I wrote this layer myself, hopefully it doesn't explode.
 	"""
 	folder = "lights"
 	label = "Lighting"
@@ -270,25 +280,24 @@ class LayerLighting:
 
 	@staticmethod
 	def process(file: SourceFile):
-		with TransferMap(file, True) as lookup:
-
+		with TransferMap(file, True) as map:
 			# Transfer new lights
-			for obj in lookup.new_objs:
+			for obj in map.new_objs:
 				if obj.type != "LIGHT" and obj.type != "LIGHT_PROBE":
 					continue
 				# Rebuild collection hierarchy
-				parent = lookup.rebuild_collection_parents(obj)
+				parent = map.rebuild_collection_parents(obj)
 				parent.objects.link(obj)
 			
 			# Remove deleted lights
-			lookup.remove_deleted_collections()
-			for obj in lookup.deleted_objs:
+			for obj in map.deleted_objs:
 				if obj.type != "LIGHT" and obj.type != "LIGHT_PROBE":
 					continue
 				bpy.data.objects.remove(obj)
+			map.remove_blank_collections()
 			
 			# Transfer data between lights
-			for obj_target, obj_source in lookup.matching_objs.items():
+			for obj_target, obj_source in map.matching_objs.items():
 				if obj_target.type != "LIGHT" and obj_target.type != "LIGHT_PROBE":
 					continue
 				copy_transform(obj_source, obj_target)
