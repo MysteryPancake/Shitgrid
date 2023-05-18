@@ -234,6 +234,7 @@ class Update_Operator(bpy.types.Operator):
 	"""Apply selected updates to assets"""
 	bl_idname = "pipeline.update"
 	bl_label = "Apply Updates"
+	bl_options = {"REGISTER", "UNDO"}
 
 	def execute(self, context):
 		props = context.scene.sg_props
@@ -316,6 +317,7 @@ class Fetch_Operator(bpy.types.Operator):
 	"""Fetch the latest approved asset build"""
 	bl_idname = "pipeline.fetch"
 	bl_label = "Fetch Asset"
+	bl_options = {"REGISTER", "UNDO"}
 
 	def execute(self, context):
 		blender_db = os.environ.get("SG_BLEND_DB")
@@ -364,6 +366,7 @@ class Dev_Build_Operator(bpy.types.Operator):
 	"""Transfer data from the selected layer onto the asset"""
 	bl_idname = "pipeline.build_layer"
 	bl_label = "Build Selected Layer"
+	bl_options = {"REGISTER", "UNDO"}
 	
 	def execute(self, context):
 		props = context.scene.sg_props
