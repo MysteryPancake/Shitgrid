@@ -4,61 +4,49 @@ from .transfer_map import TransferMap
 from .utils import *
 from .utils_kitsu import *
 
-class LayerBase:
-	"""
-	# BASE LAYER
-	The deepest build layer, unlisted and only used when headlessly building.\n
-	Rips stuff from modelling without materials, rigs, etc.\n
-	This will be obsolete and removed once LayerModelling is done.
-	"""
-	folder = "models"
-	blacklist = {"LIGHT", "LIGHT_PROBE", "ARMATURE", "CAMERA", "SPEAKER"}
-
-	@staticmethod
-	def process(file: SourceFile):
-		# Can't import Scene Collections, so import the whole scene instead
-		scene = load_scene(file.path)
-
-		for obj in scene.collection.all_objects:
-			# Remove non-modelling objects
-			if obj.type in __class__.blacklist:
-				bpy.data.objects.remove(obj)
-				continue
-
-			# Wipe animation data
-			obj.animation_data_clear()
-
-			# Wipe materials
-			obj.active_material_index = 0
-			for _ in range(len(obj.material_slots)):
-				bpy.ops.object.material_slot_remove({"object": obj})
-
-		# Transfer top level collections and objects, children copy automatically
-		for obj in scene.collection.objects:
-			bpy.context.scene.collection.objects.link(obj)
-		for col in scene.collection.children:
-			bpy.context.scene.collection.children.link(col)
-
-		# Done copying, remove the imported scene
-		unload_scene(scene)
-
 class LayerModelling:
 	"""
 	# MODELLING LAYER
-	TODO
+	TODO: EDITED MODELS
 	"""
 	folder = "models"
-	label = "(TODO) Modelling"
+	label = "(WIP) Modelling"
 	# Sub-object data blocks which could be part of this layer
 	trigger_update = [
 		"fonts", "lattices", "metaballs", "meshes", "volumes", "curves", "grease_pencils",
 		"paint_curves", "hair_curves", "particles", "pointclouds", "shape_keys"
 	]
+	blacklist = {"LIGHT", "LIGHT_PROBE", "ARMATURE", "CAMERA", "SPEAKER"}
 
 	@staticmethod
 	def process(file: SourceFile):
-		print("TODO")
-		# TODO
+		with TransferMap(file, True) as map:
+
+			# Handle new models
+			for obj in map.new_objs:
+				if obj.type in __class__.blacklist:
+					continue
+
+				# Wipe animation data
+				obj.animation_data_clear()
+
+				# Wipe materials
+				obj.active_material_index = 0
+				for _ in range(len(obj.material_slots)):
+					bpy.ops.object.material_slot_remove({"object": obj})
+
+				# Rebuild collection hierarchy
+				parent = map.rebuild_collection_parents(obj)
+				parent.objects.link(obj)
+
+			# Handle deleted models
+			for obj in map.deleted_objs:
+				if obj.type in __class__.blacklist:
+					continue
+				bpy.data.objects.remove(obj)
+			map.remove_blank_collections()
+
+			# TODO: EDITED MODELS
 
 # ========================================================================
 
@@ -147,7 +135,7 @@ class LayerMaterials:
 					)
 
 				# Wipe our UV layers
-				while obj_target.data.uv_layers:
+				for _ in range(len(obj_target.data.uv_layers)):
 					obj_target.data.uv_layers.remove(obj_target.data.uv_layers[0])
 
 				# Transfer UV layers
@@ -168,7 +156,7 @@ class LayerMaterials:
 						break
 
 				# Wipe our vertex colors
-				while obj_target.data.vertex_colors:
+				for _ in range(len(obj_target.data.vertex_colors)):
 					obj_target.data.vertex_colors.remove(obj_target.data.vertex_colors[0])
 
 				# Transfer vertex colors
@@ -281,7 +269,8 @@ class LayerLighting:
 	@staticmethod
 	def process(file: SourceFile):
 		with TransferMap(file, True) as map:
-			# Transfer new lights
+			
+			# Handle new lights
 			for obj in map.new_objs:
 				if obj.type != "LIGHT" and obj.type != "LIGHT_PROBE":
 					continue
@@ -289,14 +278,14 @@ class LayerLighting:
 				parent = map.rebuild_collection_parents(obj)
 				parent.objects.link(obj)
 			
-			# Remove deleted lights
+			# Handle deleted lights
 			for obj in map.deleted_objs:
 				if obj.type != "LIGHT" and obj.type != "LIGHT_PROBE":
 					continue
 				bpy.data.objects.remove(obj)
 			map.remove_blank_collections()
 			
-			# Transfer data between lights
+			# Handle matching lights
 			for obj_target, obj_source in map.matching_objs.items():
 				if obj_target.type != "LIGHT" and obj_target.type != "LIGHT_PROBE":
 					continue

@@ -5,11 +5,7 @@ from .layers import *
 from .utils import *
 
 class AssetBuilder:
-	"""
-	Constructs an asset by applying layers to the current scene.\n
-	Each layer is responsible for processing added, removed and edited data.\n
-	Data from other asset names or layers is left untouched.
-	"""
+	"""Constructs an asset by applying layers to the current scene."""
 	def __init__(self, name: str):
 		self.blender_db = os.environ.get("SG_BLEND_DB")
 		if not self.blender_db:
@@ -137,7 +133,7 @@ if __name__ == "__main__":
 	args = get_args()
 
 	builder = AssetBuilder(args.asset)
-	builder.process(LayerBase)
+	builder.process(LayerModelling)
 	builder.process(LayerMaterials)
 	builder.process(LayerRigging)
 	builder.process(LayerGrooming)

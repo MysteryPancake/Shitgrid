@@ -360,25 +360,7 @@ class Fetch_Panel(bpy.types.Panel):
 		layout.prop(scn.sg_props, "fetch_asset")
 		layout.operator(Fetch_Operator.bl_idname, icon="IMPORT")
 
-class Dev_Build_Base_Operator(bpy.types.Operator):
-	"""Load clean base geometry from modelling"""
-	bl_idname = "pipeline.build_base"
-	bl_label = "Load Base Geometry"
-
-	def execute(self, context):
-		props = context.scene.sg_props
-		if not props.dev_build_asset:
-			self.report({"ERROR_INVALID_INPUT"}, "Please type in an asset!")
-			return {"CANCELLED"}
-		try:
-			builder = AssetBuilder(props.dev_build_asset)
-			builder.process(LayerBase, props.dev_build_version)
-			return {"FINISHED"}
-		except Exception as err:
-			self.report({"ERROR"}, str(err))
-			return {"CANCELLED"}
-
-class Dev_Build_Layer_Operator(bpy.types.Operator):
+class Dev_Build_Operator(bpy.types.Operator):
 	"""Transfer data from the selected layer onto the asset"""
 	bl_idname = "pipeline.build_layer"
 	bl_label = "Build Selected Layer"
@@ -414,8 +396,7 @@ class Build_Panel(bpy.types.Panel):
 		layout.prop(scn.sg_props, "dev_build_asset")
 		layout.prop(scn.sg_props, "dev_build_layer")
 		layout.prop(scn.sg_props, "dev_build_version")
-		layout.operator(Dev_Build_Base_Operator.bl_idname)
-		layout.operator(Dev_Build_Layer_Operator.bl_idname)
+		layout.operator(Dev_Build_Operator.bl_idname)
 
 	@classmethod
 	def poll(cls, context):
@@ -424,8 +405,8 @@ class Build_Panel(bpy.types.Panel):
 # Dump all classes to register in here
 classes = [
 	Publish_Panel, Update_Panel, Fetch_Panel, Build_Panel,
-	Publish_Operator, Check_Updates_Operator, Update_Operator, Update_Close_Operator,
-	Fetch_Operator, Dev_Build_Base_Operator, Dev_Build_Layer_Operator,
+	Publish_Operator, Check_Updates_Operator, Update_Operator,
+	Update_Close_Operator, Fetch_Operator, Dev_Build_Operator,
 	Update_Item, Properties, Preferences
 ]
 

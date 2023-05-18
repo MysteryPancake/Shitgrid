@@ -5,7 +5,7 @@ from .utils import *
 
 class TransferMap:
 	"""
-	Finds added, removed and matching data blocks using IDs.\n
+	Finds new, deleted and matching data blocks using IDs.\n
 	If multiple blocks share the same ID, it matches by order.
 	"""
 	def __add_new(self, item: Any) -> None:
@@ -15,7 +15,7 @@ class TransferMap:
 		else:
 			self.new_objs.append(item)
 	
-	def __add_removed(self, item: Any) -> None:
+	def __add_deleted(self, item: Any) -> None:
 		"""Registers a deleted collection or object"""
 		if type(item) == bpy.types.Collection:
 			self.deleted_cols.append(item)
@@ -87,18 +87,18 @@ class TransferMap:
 			# I think it's better to remove nothing.
 			if target_id not in self.source_ids:
 				for target in self.target_ids[target_id]:
-					self.__add_removed(target)
+					self.__add_deleted(target)
 	
 	def __find_parents(self, col: bpy.types.Collection) -> None:
 		"""Finds parents of all child objects and collections in the other scene"""
-
 		for child in col.children:
 			if col != self.scene.collection:
 				self.parents[child] = col
 			self.__find_parents(child)
 
 		for obj in col.objects:
-			self.parents[obj] = col
+			if col != self.scene.collection:
+				self.parents[obj] = col
 	
 	def __attempt_match(self, col: bpy.types.Collection) -> Optional[bpy.types.Collection]:
 		"""Tries to find a matching parent collection"""
