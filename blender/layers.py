@@ -88,8 +88,9 @@ class LayerModelling(LayerBase):
 						for key in obj_target.data.shape_keys.key_blocks:
 							for i, point in enumerate([dat.co for dat in key.data]):
 								key.data[i].co = point + offset[i]
+
 				elif obj_target.type == "CURVE":
-					# TODO: proper geometry transfer for curves
+					# TODO: Geometry transfer for curves
 					obj_target_original = bpy.data.objects.new(f"{obj_target.name}.original", obj_target.data)
 					# This overrides material data
 					obj_target.data = obj_source.data
@@ -97,7 +98,7 @@ class LayerModelling(LayerBase):
 					transfer_surfacing(obj_target_original, obj_target, topo_match)
 					bpy.data.objects.remove(obj_target_original)
 			else:
-				# If topology doesn't match, replace object data and proximity transfer rigging data
+				# If topology doesn't match, replace object data and proximity transfer shape keys
 				print(f"WARNING: Topology Mismatch! Replacing object data and transferring with potential data loss on '{obj_target.name}'")
 
 				obj_target_original = bpy.data.objects.new(f"{obj_target.name}.original", obj_target.data)
@@ -108,7 +109,6 @@ class LayerModelling(LayerBase):
 
 				# This overrides material data
 				obj_target.data = obj_source.data
-
 				# Try to restore material data
 				transfer_surfacing(obj_target_original, obj_target, topo_match)
 
@@ -186,6 +186,11 @@ class LayerModelling(LayerBase):
 						continue
 					for i in range(2):
 						bpy.ops.object.correctivesmooth_bind({"object": obj_target, "active_object": obj_target}, modifier=mod.name)
+
+			# Ensure object version matches
+			transfer_version(obj_source, obj_target)
+			# Ensure mesh version matches
+			transfer_version(obj_source.data, obj_target.data)
 
 class LayerMaterials(LayerBase):
 	"""
@@ -304,8 +309,10 @@ class LayerLighting(LayerBase):
 				continue
 			if settings.update_transform:
 				copy_transform(obj_source, obj_target)
-			copy_attributes(obj_source, obj_target)
-			copy_drivers(obj_source, obj_target)
+			# Transfer the light data and version
+			obj_target.data = obj_source.data
+			# Ensure object version matches
+			transfer_version(obj_source, obj_target)
 		
 		# Transfer world (copy_attributes doesn't work for some reason)
 		bpy.context.scene.world = map.scene.world

@@ -1,3 +1,4 @@
+from typing import Any
 import bpy
 
 class SourceFile:
@@ -30,3 +31,11 @@ def unload_scene(scene: bpy.types.Scene) -> None:
 	bpy.data.scenes.remove(scene)
 	# Wipe the data block and kill the orphans (real)
 	bpy.data.orphans_purge(do_local_ids=True, do_linked_ids=True, do_recursive=True)
+
+def transfer_version(source: Any, target: Any) -> None:
+	"""Transfers the version number between data blocks, useful when updating data"""
+	source_version = source.get("sg_version")
+	target_version = target.get("sg_version")
+	# 0 is false, so check for None instead
+	if source_version != None and target_version != None:
+		target["sg_version"] = source["sg_version"]
