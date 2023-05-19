@@ -312,8 +312,8 @@ def transfer_shapekeys_proximity(obj_source, obj_target) -> None:
 			val = mathutils.Vector(sum(np.array(vals_weighted)))
 			sk_target.data[i].co = vert.co + val
 
-# Used by the material and modelling layers
 def transfer_surfacing(obj_source: bpy.types.Object, obj_target: bpy.types.Object, topo_match: bool):
+	"""Transfers materials, UVs, seams, vertex colors and face data"""
 	# Wipe our material slots
 	while len(obj_target.material_slots) > len(obj_source.material_slots):
 		obj_target.active_material_index = len(obj_source.material_slots)
