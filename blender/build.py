@@ -1,6 +1,7 @@
 import bpy, os, argparse, getpass
 from uuid import uuid4
 
+from .transfer_map import TransferMap
 from .layers import *
 from .utils import *
 
@@ -79,7 +80,8 @@ class AssetBuilder:
 		Zero or negative uses the latest version.
 		"""
 		path = self.__get_version(layer.folder, version) if version > 0 else self.__get_latest(layer.folder)
-		layer.process(path)
+		with TransferMap(path) as map:
+			layer.process(map)
 
 	def __update_catalog(self, version: int) -> None:
 		"""Manually updates Blender's Asset Library catalog file"""

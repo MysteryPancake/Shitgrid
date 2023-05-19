@@ -185,10 +185,10 @@ class Check_Updates_Operator(bpy.types.Operator):
 		props = context.scene.sg_props
 		props.update_items.clear()
 
-		# Outdated layer names per asset
-		updates: dict[str, set[Any]] = {}
+		# Using a list instead of a set to preserve layer order
+		updates: dict[str, list[Any]] = {}
 		for asset in name_set:
-			updates[asset] = set()
+			updates[asset] = []
 
 		# Find outdated data blocks
 		for layer in listed_layers:
@@ -211,22 +211,22 @@ class Check_Updates_Operator(bpy.types.Operator):
 
 					current = block.get("sg_version")
 					latest = len([p for p in os.listdir(folder) if p.endswith(".blend")])
-					if latest > current:
-						updates[asset].add(layer)
+					if latest > current and layer not in updates[asset]:
+						updates[asset].append(layer)
 
 		# Build update list UI
 		for asset in name_set:
-			layer_set = updates[asset]
-			layers = ", ".join(layer_set) if layer_set else "Up to date"
+			layer_order = updates[asset]
+			layers = ", ".join(layer_order) if layer_order else "Up to date"
 
 			# Add UI list entry
 			item = props.update_items.add()
 			item.name = f"{asset} ({layers})"
 			item.asset = asset
-			for layer_name in layer_set:
+			for layer_name in layer_order:
 				layer = item.layers.add()
 				layer.name = layer_name
-			item.outdated = bool(layer_set)
+			item.outdated = bool(layer_order)
 
 		return {"FINISHED"}
 
@@ -244,6 +244,7 @@ class Update_Operator(bpy.types.Operator):
 				if not item.checked or not item.outdated:
 					continue
 
+				# This assumes correct layer ordering from Check_Updates
 				builder = AssetBuilder(item.asset)
 				for layer in item.layers:
 					layer_obj = layer_lookup[layer.name]

@@ -79,7 +79,7 @@ def copy_driver(
 		else:
 			new_fc = target_obj.driver_add(data_path)
 	except:
-		print(f"Couldn't copy driver {source_fcurve.data_path} to {target_obj.name}")
+		print(f"ERROR: Couldn't copy driver {source_fcurve.data_path} to {target_obj.name}")
 		return
 
 	copy_attributes(source_fcurve, new_fc)

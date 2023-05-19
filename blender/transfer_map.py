@@ -28,6 +28,8 @@ class TransferMap:
 			self.matching_cols[target] = source
 		else:
 			self.matching_objs[target] = source
+			# For rare case in modelling layer
+			self.matching_objs_target[source] = target
 
 	def __find_ids(self, data_blocks: list[Any], ids: dict[str, list[Any]]) -> None:
 		"""Builds a dict to easily check whether an ID exists"""
@@ -164,9 +166,12 @@ class TransferMap:
 		bpy.context.collection.children.link(top)
 		return parent
 
-	def __init__(self, file: SourceFile, find_parents: bool=False):
+	def __init__(self, file: SourceFile):
 		self.file = file
 		self.scene = load_scene(file.path)
+
+		# For rare case in modelling layer
+		self.matching_objs_target: dict[bpy.types.Object, bpy.types.Object] = {}
 
 		self.matching_objs: dict[bpy.types.Object, bpy.types.Object] = {}
 		self.matching_cols: dict[bpy.types.Collection, bpy.types.Collection] = {}
@@ -179,12 +184,11 @@ class TransferMap:
 		self.target_ids: dict[str, list[Any]] = {}
 		self.__find_matches()
 
-		if find_parents:
-			self.parents: dict[
-				Union[bpy.types.Object, bpy.types.Collection],
-				Union[bpy.types.Object, bpy.types.Collection]
-			] = {}
-			self.__find_parents(self.scene.collection)
+		self.parents: dict[
+			Union[bpy.types.Object, bpy.types.Collection],
+			Union[bpy.types.Object, bpy.types.Collection]
+		] = {}
+		self.__find_parents(self.scene.collection)
 		
 	def close(self):
 		"""In case you don't want to use `with`"""
