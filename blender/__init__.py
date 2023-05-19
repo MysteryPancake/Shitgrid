@@ -379,9 +379,9 @@ class Fetch_Panel(bpy.types.Panel):
 		layout.operator(Fetch_Operator.bl_idname, icon="IMPORT")
 
 class Dev_Build_Operator(bpy.types.Operator):
-	"""Transfer data from the selected layer onto the asset"""
+	"""Build the asset layer by adding, removing and updating data"""
 	bl_idname = "pipeline.build_layer"
-	bl_label = "Build Selected Layer"
+	bl_label = "Build Asset Layer"
 	bl_options = {"REGISTER", "UNDO"}
 	
 	def execute(self, context):
