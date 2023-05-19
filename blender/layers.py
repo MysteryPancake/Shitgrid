@@ -21,7 +21,7 @@ class LayerModelling(LayerBase):
 	"""
 	# MODELLING LAYER
 	Adds, removes and transfers models into the current scene.
-	I stole the transferring code from Kitsu :)
+	I stole most of the transferring code from Kitsu :)
 	"""
 	folder = "models"
 	label = "Modelling"
@@ -51,6 +51,10 @@ class LayerModelling(LayerBase):
 			parent = map.rebuild_collection_parents(obj)
 			parent.objects.link(obj)
 
+			# Transfer modifiers
+			remap_new_modifiers(obj, map)
+			rebind_modifiers(obj)
+
 		# Handle deleted models
 		for obj in map.deleted_objs:
 			if obj.type in __class__.object_blacklist:
@@ -67,8 +71,8 @@ class LayerModelling(LayerBase):
 
 			topo_match = match_topology(obj_source, obj_target)
 			if topo_match:
-				# If topology matches, transfer position attribute (keeping shapekeys intact)
 				if obj_target.type == "MESH":
+					# Transfer position attribute (keeping shapekeys intact)
 					if not obj_target.data.vertices:
 						print(f"WARNING: Mesh object '{obj_target.name}' has empty object data")
 						continue
@@ -78,7 +82,7 @@ class LayerModelling(LayerBase):
 						offset_sum += x.length
 					offset_avg = offset_sum / len(offset)
 					if offset_avg > 0.1:
-						print(f"Average Vertex offset is {offset_avg} for {obj_target.name}")
+						print(f"Average vertex offset is {offset_avg} for {obj_target.name}")
 
 					for i, vec in enumerate(offset):
 						obj_target.data.vertices[i].co += vec
@@ -98,7 +102,7 @@ class LayerModelling(LayerBase):
 					transfer_surfacing(obj_target_original, obj_target, topo_match)
 					bpy.data.objects.remove(obj_target_original)
 			else:
-				# If topology doesn't match, replace object data and proximity transfer shape keys
+				# If topology doesn't match, replace object data and proximity transfer shapekeys
 				print(f"WARNING: Topology Mismatch! Replacing object data and transferring with potential data loss on '{obj_target.name}'")
 
 				obj_target_original = bpy.data.objects.new(f"{obj_target.name}.original", obj_target.data)
@@ -113,7 +117,7 @@ class LayerModelling(LayerBase):
 				transfer_surfacing(obj_target_original, obj_target, topo_match)
 
 				if hasattr(obj_target.data, "shape_keys"):
-					# Transfer weights
+					# Transfer vertex groups
 					bpy.ops.object.data_transfer(
 						{
 							"object": obj_target_original,
@@ -129,7 +133,7 @@ class LayerModelling(LayerBase):
 					)
 					# Transfer shapekeys
 					transfer_shapekeys_proximity(obj_target_original, obj_target)
-					# Transfer drivers
+					# Transfer shapekey drivers
 					copy_drivers(sk_original, obj_target.data.shape_keys)
 					del sk_original
 
@@ -143,49 +147,10 @@ class LayerModelling(LayerBase):
 					#print(f"Removing modifier {mod.name}")
 					#obj_target.modifiers.remove(mod)
 			
-			# Transfer new modifiers
-			for i, mod in enumerate(obj_source.modifiers):
-				if mod.name in [m.name for m in obj_target.modifiers]:
-					continue
-				mod_new = obj_target.modifiers.new(mod.name, mod.type)
-				# Sort new modifier at correct index (default to beginning of the stack)
-				idx = 0
-				if i > 0:
-					name_prev = obj_source.modifiers[i - 1].name
-					for target_mod_i, target_mod in enumerate(obj_target.modifiers):
-						if target_mod.name == name_prev:
-							idx = target_mod_i + 1
-				bpy.ops.object.modifier_move_to_index({"object": obj_target}, modifier=mod_new.name, index=idx)
-			
-			# Sync modifier settings
-			for i, mod_source in enumerate(obj_source.modifiers):
-				mod_target = obj_target.modifiers.get(mod_source.name)
-				if not mod_target:
-					continue
-				for prop in [p.identifier for p in mod_source.bl_rna.properties if not p.is_readonly]:
-					value = getattr(mod_source, prop)
-					if type(value) == bpy.types.Object and value in map.matching_objs_target:
-						# Remap modifiers to transferred objects if possible
-						value = map.matching_objs_target[value]
-					setattr(mod_target, prop, value)
-			
-			# Rebind modifiers (corrective smooth, surface deform, mesh deform)
-			for mod in obj_target.modifiers:
-				if mod.type == "SURFACE_DEFORM":
-					if not mod.is_bound:
-						continue
-					for i in range(2):
-						bpy.ops.object.surfacedeform_bind({"object": obj_target, "active_object": obj_target}, modifier=mod.name)
-				elif mod.type == "MESH_DEFORM":
-					if not mod.is_bound:
-						continue
-					for i in range(2):
-						bpy.ops.object.meshdeform_bind({"object": obj_target, "active_object": obj_target}, modifier=mod.name)
-				elif mod.type == "CORRECTIVE_SMOOTH":
-					if not mod.is_bind:
-						continue
-					for i in range(2):
-						bpy.ops.object.correctivesmooth_bind({"object": obj_target, "active_object": obj_target}, modifier=mod.name)
+			# Transfer modifiers
+			transfer_new_modifiers(obj_source, obj_target)
+			remap_modifiers(obj_source, obj_target, map)
+			rebind_modifiers(obj_target)
 
 			# Ensure object version matches
 			transfer_version(obj_source, obj_target)
@@ -196,7 +161,7 @@ class LayerMaterials(LayerBase):
 	"""
 	# MATERIALS LAYER
 	Transfers materials and UVs between source and target objects.\n
-	I stole the transferring code from Kitsu :)
+	I stole most of the transferring code from Kitsu :)
 	"""
 	folder = "materials"
 	label = "Surfacing / UVs"

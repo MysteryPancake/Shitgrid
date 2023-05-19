@@ -2,9 +2,65 @@ from typing import Any, Optional
 import bpy, mathutils, bmesh
 import numpy as np
 
+from .transfer_map import TransferMap
+
 # Kitsu has lots of utilities for transferring data between objects
-# I stole everything below from their codebase :)
+# I stole everything below from Kitsu :)
 # projects.blender.org/studio/blender-studio-pipeline/src/branch/main/scripts-blender/addons/asset_pipeline/docs/production_config_heist/task_layers.py
+
+def transfer_new_modifiers(obj_source: bpy.types.Object, obj_target: bpy.types.Object):
+	for i, mod in enumerate(obj_source.modifiers):
+		if mod.name in [m.name for m in obj_target.modifiers]:
+			continue
+		mod_new = obj_target.modifiers.new(mod.name, mod.type)
+		# Sort new modifier at correct index (default to beginning of the stack)
+		idx = 0
+		if i > 0:
+			name_prev = obj_source.modifiers[i - 1].name
+			for target_mod_i, target_mod in enumerate(obj_target.modifiers):
+				if target_mod.name == name_prev:
+					idx = target_mod_i + 1
+		bpy.ops.object.modifier_move_to_index({"object": obj_target}, modifier=mod_new.name, index=idx)
+
+def remap_new_modifiers(obj: bpy.types.Object, map: TransferMap):
+	for i, mod_source in enumerate(obj.modifiers):
+		for prop in [p.identifier for p in mod_source.bl_rna.properties if not p.is_readonly]:
+			value = getattr(mod_source, prop)
+			if type(value) == bpy.types.Object and value in map.matching_objs_target:
+				# Remap modifiers to transferred objects if possible
+				value = map.matching_objs_target[value]
+			setattr(mod_source, prop, value)
+
+def remap_modifiers(obj_source: bpy.types.Object, obj_target: bpy.types.Object, map: TransferMap):
+	for i, mod_source in enumerate(obj_source.modifiers):
+		mod_target = obj_target.modifiers.get(mod_source.name)
+		if not mod_target:
+			continue
+		for prop in [p.identifier for p in mod_source.bl_rna.properties if not p.is_readonly]:
+			value = getattr(mod_source, prop)
+			if type(value) == bpy.types.Object and value in map.matching_objs_target:
+				# Remap modifiers to transferred objects if possible
+				value = map.matching_objs_target[value]
+			setattr(mod_target, prop, value)
+
+def rebind_modifiers(obj_target: bpy.types.Object):
+	"""Rebinds corrective smooth, surface deform and mesh deform modifiers"""
+	for mod in obj_target.modifiers:
+		if mod.type == "SURFACE_DEFORM":
+			if not mod.is_bound:
+				continue
+			for i in range(2):
+				bpy.ops.object.surfacedeform_bind({"object": obj_target, "active_object": obj_target}, modifier=mod.name)
+		elif mod.type == "MESH_DEFORM":
+			if not mod.is_bound:
+				continue
+			for i in range(2):
+				bpy.ops.object.meshdeform_bind({"object": obj_target, "active_object": obj_target}, modifier=mod.name)
+		elif mod.type == "CORRECTIVE_SMOOTH":
+			if not mod.is_bind:
+				continue
+			for i in range(2):
+				bpy.ops.object.correctivesmooth_bind({"object": obj_target, "active_object": obj_target}, modifier=mod.name)
 
 def match_topology(a: bpy.types.Object, b: bpy.types.Object) -> bool:
 	"""Checks if two objects have matching topology (efficiency over exactness)"""
@@ -230,14 +286,14 @@ def transfer_corner_data(obj_source, obj_target, data_layer_source, data_layer_t
 		face_source = closest_face_to_point(bm_source, face_target_center, bvh_tree)
 
 		for corner_target in face_target.loops:
-			#find nearest face on target compared to face that loop belongs to
+			# Find nearest face on target compared to face that loop belongs to
 			p = corner_target.vert.co
 
 			face_source_closest = closest_face_to_point(bm_source, p, bvh_tree)
 			enclosed = face_source_closest is face_source
 			face_source_int = face_source
 			if not enclosed:
-				# traverse faces between point and face center
+				# Traverse faces between point and face center
 				traversed_faces = set()
 				traversed_edges = set()
 				while (face_source_int is not face_source_closest):
@@ -253,15 +309,15 @@ def transfer_corner_data(obj_source, obj_target, data_layer_source, data_layer_t
 					if split:
 						break
 
-					# set new source face to other face belonging to edge
+					# Set new source face to other face belonging to edge
 					face_source_int = edge.link_faces[1] if edge.link_faces[1] is not face_source_int else edge.link_faces[0]
 
-					# avoid looping behaviour
+					# Avoid looping behaviour
 					if face_source_int in traversed_faces:
 						face_source_int = face_source
 						break
 
-			# interpolate data from selected face
+			# Interpolate data from selected face
 			col = interpolate_data_from_face(bm_source, tris_dict, face_source_int, p, data_layer_source, data_suffix)
 			if col is None:
 				continue

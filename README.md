@@ -48,6 +48,7 @@ The Blender addon is written in Python.
 
 ### Blender Addon
 
+- `SG_BLEND_DB` must be set in the file `blender/env_vars.py`.
 - Set `SG_BLEND_DB` to the folder you want Blender files to be saved, for example `C:/blender_db`
 
 ## Installation
