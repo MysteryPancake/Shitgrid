@@ -79,12 +79,18 @@ class Properties(bpy.types.PropertyGroup):
 
 	# Update properties
 	update_items: bpy.props.CollectionProperty(type=Update_Item)
+	update_transform: bpy.props.BoolProperty(name="Update Transform", default=True)
 
 	# Developer properties
-	dev_make_folder: bpy.props.BoolProperty(name="(DEV) Make asset if missing")
-	dev_build_asset: bpy.props.StringProperty(name="Asset Name")
+	dev_make_folder: bpy.props.BoolProperty(name="(DEV) Make asset if missing", default=False)
 	dev_build_layer: bpy.props.EnumProperty(name="Layer", items=layer_menu)
 	dev_build_version: bpy.props.IntProperty(name="Version", default=1)
+
+def get_transfer_settings(props: Properties):
+	"""Builds transfer settings from UI panel properties"""
+	settings = TransferSettings()
+	settings.update_transform = props.update_transform
+	return settings
 
 class Publish_Operator(bpy.types.Operator):
 	"""Save and increment the version of the above assets"""
@@ -152,12 +158,12 @@ class Publish_Panel(bpy.types.Panel):
 	bl_category = "Shitgrid"
 
 	def draw(self, context):
-		scn = context.scene
+		props = context.scene.sg_props
 		layout = self.layout
 		if context.preferences.addons[__name__].preferences.dev_mode:
-			layout.prop(scn.sg_props, "dev_make_folder")
-		layout.prop(scn.sg_props, "publish_asset")
-		layout.prop(scn.sg_props, "publish_layer")
+			layout.prop(props, "dev_make_folder")
+		layout.prop(props, "publish_asset")
+		layout.prop(props, "publish_layer")
 		layout.operator(Publish_Operator.bl_idname, icon="EXPORT")
 
 def get_selected_assets(context):
@@ -238,6 +244,7 @@ class Update_Operator(bpy.types.Operator):
 
 	def execute(self, context):
 		props = context.scene.sg_props
+		settings = get_transfer_settings(props)
 		try:
 			for item in props.update_items:
 				# Skip unchecked items
@@ -248,7 +255,7 @@ class Update_Operator(bpy.types.Operator):
 				builder = AssetBuilder(item.asset)
 				for layer in item.layers:
 					layer_obj = layer_lookup[layer.name]
-					builder.process(layer_obj, -1)
+					builder.process(layer_obj, settings, -1)
 					
 			props.update_items.clear()
 			return {"FINISHED"}
@@ -310,9 +317,11 @@ class Update_Panel(bpy.types.Panel):
 			)
 			row.label(text=item.name)
 
-		# Update button
 		if outdated:
+			# Update button
 			layout.operator(Update_Operator.bl_idname, icon="SORT_ASC")
+			# Update transform checkbox
+			layout.prop(props, "update_transform")
 
 class Fetch_Operator(bpy.types.Operator):
 	"""Fetch the latest approved asset build"""
@@ -358,9 +367,9 @@ class Fetch_Panel(bpy.types.Panel):
 	bl_category = "Shitgrid"
 
 	def draw(self, context):
-		scn = context.scene
+		props = context.scene.sg_props
 		layout = self.layout
-		layout.prop(scn.sg_props, "fetch_asset")
+		layout.prop(props, "fetch_asset")
 		layout.operator(Fetch_Operator.bl_idname, icon="IMPORT")
 
 class Dev_Build_Operator(bpy.types.Operator):
@@ -371,13 +380,14 @@ class Dev_Build_Operator(bpy.types.Operator):
 	
 	def execute(self, context):
 		props = context.scene.sg_props
-		if not props.dev_build_asset:
+		if not props.fetch_asset:
 			self.report({"ERROR_INVALID_INPUT"}, "Please type in an asset!")
 			return {"CANCELLED"}
 		try:
-			builder = AssetBuilder(props.dev_build_asset)
+			builder = AssetBuilder(props.fetch_asset)
+			settings = get_transfer_settings(props)
 			layer = layer_lookup[props.dev_build_layer]
-			builder.process(layer, props.dev_build_version)
+			builder.process(layer, settings, props.dev_build_version)
 			return {"FINISHED"}
 		except Exception as err:
 			self.report({"ERROR"}, str(err))
@@ -391,15 +401,16 @@ class Build_Panel(bpy.types.Panel):
 	bl_category = "Shitgrid"
 
 	def draw(self, context):
-		scn = context.scene
+		props = context.scene.sg_props
 		layout = self.layout
 
 		layout.use_property_split = True
 		layout.use_property_decorate = False
 		
-		layout.prop(scn.sg_props, "dev_build_asset")
-		layout.prop(scn.sg_props, "dev_build_layer")
-		layout.prop(scn.sg_props, "dev_build_version")
+		layout.prop(props, "fetch_asset")
+		layout.prop(props, "dev_build_layer")
+		layout.prop(props, "dev_build_version")
+		layout.prop(props, "update_transform")
 		layout.operator(Dev_Build_Operator.bl_idname)
 
 	@classmethod

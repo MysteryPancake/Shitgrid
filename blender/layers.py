@@ -1,7 +1,7 @@
 import bpy
 from abc import ABCMeta, abstractmethod
 
-from .transfer_map import TransferMap
+from .transfer_map import *
 from .utils import *
 from .utils_kitsu import *
 
@@ -10,10 +10,11 @@ class LayerBase(ABCMeta):
 	folder: str = NotImplemented
 	label: str = NotImplemented
 	trigger_update: list[str] = NotImplemented
+	find_parents: bool = True
 
 	@staticmethod
 	@abstractmethod
-	def process(map: TransferMap):
+	def process(map: TransferMap, settings: TransferSettings):
 		pass
 
 class LayerModelling(LayerBase):
@@ -32,7 +33,7 @@ class LayerModelling(LayerBase):
 	object_blacklist = {"LIGHT", "LIGHT_PROBE", "ARMATURE", "CAMERA", "SPEAKER"}
 
 	@staticmethod
-	def process(map: TransferMap):
+	def process(map: TransferMap, settings: TransferSettings):
 		# Handle new models
 		for obj in map.new_objs:
 			if obj.type in __class__.object_blacklist:
@@ -61,7 +62,8 @@ class LayerModelling(LayerBase):
 		for obj_target, obj_source in map.matching_objs.items():
 			
 			# Copy world space transform
-			copy_transform(obj_source, obj_target)
+			if settings.update_transform:
+				copy_transform(obj_source, obj_target)
 
 			topo_match = match_topology(obj_source, obj_target)
 			if topo_match:
@@ -98,7 +100,7 @@ class LayerModelling(LayerBase):
 				print(f"WARNING: Topology Mismatch! Replacing object data and transferring with potential data loss on '{obj_target.name}'")
 				obj_target.data = obj_source.data
 
-				# transfer weights
+				# Transfer weights
 				bpy.ops.object.data_transfer(
 					{
 						"object": obj_target_original,
@@ -123,7 +125,7 @@ class LayerModelling(LayerBase):
 				bpy.data.objects.remove(obj_target_original)
 
 			# Remove old modifiers
-			# For now, don't remove any modifiers
+			# UPDATE: For now, don't remove any
 
 			#for mod in obj_target.modifiers:
 				#if mod.name not in __class__.modifier_whitelist and mod.name not in [m.name for m in obj_source.modifiers]:
@@ -162,17 +164,17 @@ class LayerModelling(LayerBase):
 					if not mod.is_bound:
 						continue
 					for i in range(2):
-						bpy.ops.object.surfacedeform_bind({"object": obj_target,"active_object": obj_target}, modifier=mod.name)
+						bpy.ops.object.surfacedeform_bind({"object": obj_target, "active_object": obj_target}, modifier=mod.name)
 				elif mod.type == "MESH_DEFORM":
 					if not mod.is_bound:
 						continue
 					for i in range(2):
-						bpy.ops.object.meshdeform_bind({"object": obj_target,"active_object": obj_target}, modifier=mod.name)
+						bpy.ops.object.meshdeform_bind({"object": obj_target, "active_object": obj_target}, modifier=mod.name)
 				elif mod.type == "CORRECTIVE_SMOOTH":
 					if not mod.is_bind:
 						continue
 					for i in range(2):
-						bpy.ops.object.correctivesmooth_bind({"object": obj_target,"active_object": obj_target}, modifier=mod.name)
+						bpy.ops.object.correctivesmooth_bind({"object": obj_target, "active_object": obj_target}, modifier=mod.name)
 
 class LayerMaterials(LayerBase):
 	"""
@@ -186,9 +188,11 @@ class LayerMaterials(LayerBase):
 	trigger_update = [
 		"materials", "textures", "images", "brushes", "palettes", "linestyles"
 	]
+	# This layer doesn't need parents, skip calculating it
+	find_parents = False
 	
 	@staticmethod
-	def process(map: TransferMap):
+	def process(map: TransferMap, settings: TransferSettings):
 		# Handle matching materials
 		for obj_target, obj_source in map.matching_objs.items():
 
@@ -329,7 +333,7 @@ class LayerGrooming(LayerBase):
 	trigger_update = ["hair_curves"]
 
 	@staticmethod
-	def process(map: TransferMap):
+	def process(map: TransferMap, settings: TransferSettings):
 		print("TODO")
 		# TODO
 
@@ -344,7 +348,7 @@ class LayerRigging(LayerBase):
 	trigger_update = ["armatures", "shape_keys"]
 
 	@staticmethod
-	def process(map: TransferMap):
+	def process(map: TransferMap, settings: TransferSettings):
 		print("TODO")
 		# TODO
 
@@ -359,7 +363,7 @@ class LayerAssembly(LayerBase):
 	trigger_update = ["cameras"]
 
 	@staticmethod
-	def process(map: TransferMap):
+	def process(map: TransferMap, settings: TransferSettings):
 		print("TODO")
 		# TODO
 
@@ -374,7 +378,7 @@ class LayerAnimation(LayerBase):
 	trigger_update = ["actions", "shape_keys"]
 
 	@staticmethod
-	def process(map: TransferMap):
+	def process(map: TransferMap, settings: TransferSettings):
 		print("TODO")
 		# TODO
 
@@ -389,7 +393,7 @@ class LayerLighting(LayerBase):
 	trigger_update = ["lights", "lightprobes", "worlds"]
 
 	@staticmethod
-	def process(map: TransferMap):
+	def process(map: TransferMap, settings: TransferSettings):
 		# Handle new lights
 		for obj in map.new_objs:
 			if obj.type != "LIGHT" and obj.type != "LIGHT_PROBE":
@@ -409,8 +413,8 @@ class LayerLighting(LayerBase):
 		for obj_target, obj_source in map.matching_objs.items():
 			if obj_target.type != "LIGHT" and obj_target.type != "LIGHT_PROBE":
 				continue
-			copy_transform(obj_source, obj_target)
-			copy_parenting(obj_source, obj_target)
+			if settings.update_transform:
+				copy_transform(obj_source, obj_target)
 			copy_attributes(obj_source, obj_target)
 			copy_drivers(obj_source, obj_target)
 		

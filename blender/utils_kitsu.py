@@ -32,7 +32,7 @@ def match_topology(a: bpy.types.Object, b: bpy.types.Object) -> bool:
 	return False
 
 def copy_transform(source_ob: bpy.types.Object, target_ob: bpy.types.Object):
-	"""Transfers world transform data between objects"""
+	"""Copy source transform to target transform in world space"""
 	con_vis = []
 	for con in target_ob.constraints:
 		con_vis += [con.enabled]

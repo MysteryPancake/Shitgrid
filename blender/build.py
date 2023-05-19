@@ -1,7 +1,7 @@
 import bpy, os, argparse, getpass
 from uuid import uuid4
 
-from .transfer_map import TransferMap
+from .transfer_map import *
 from .layers import *
 from .utils import *
 
@@ -74,14 +74,14 @@ class AssetBuilder:
 		asset_data.catalog_id = self.uuid
 		asset_data.author = getpass.getuser()
 
-	def process(self, layer, version: int=-1) -> None:
+	def process(self, layer, settings: TransferSettings, version: int=-1) -> None:
 		"""
 		Applies a layer with a specific version.\n
 		Zero or negative uses the latest version.
 		"""
 		path = self.__get_version(layer.folder, version) if version > 0 else self.__get_latest(layer.folder)
-		with TransferMap(path) as map:
-			layer.process(map)
+		with TransferMap(path, layer.find_parents) as map:
+			layer.process(map, settings)
 
 	def __update_catalog(self, version: int) -> None:
 		"""Manually updates Blender's Asset Library catalog file"""
@@ -137,11 +137,14 @@ def get_args():
 if __name__ == "__main__":
 	args = get_args()
 
+	settings = TransferSettings()
+	settings.update_transform = True
+
 	builder = AssetBuilder(args.asset)
-	builder.process(LayerModelling)
-	builder.process(LayerMaterials)
-	builder.process(LayerRigging)
-	builder.process(LayerGrooming)
+	builder.process(LayerModelling, settings)
+	builder.process(LayerMaterials, settings)
+	builder.process(LayerRigging, settings)
+	builder.process(LayerGrooming, settings)
 	
 	# When all layers are finished, this would be nice:
 	# for layer in listed_layers:

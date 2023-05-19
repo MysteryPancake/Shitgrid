@@ -3,6 +3,10 @@ import bpy
 
 from .utils import *
 
+class TransferSettings:
+	"""Settings used when applying build layers"""
+	update_transform: bool = True
+
 class TransferMap:
 	"""
 	Finds new, deleted and matching data blocks using IDs.\n
@@ -166,7 +170,7 @@ class TransferMap:
 		bpy.context.collection.children.link(top)
 		return parent
 
-	def __init__(self, file: SourceFile):
+	def __init__(self, file: SourceFile, find_parents: bool=True):
 		self.file = file
 		self.scene = load_scene(file.path)
 
@@ -184,11 +188,12 @@ class TransferMap:
 		self.target_ids: dict[str, list[Any]] = {}
 		self.__find_matches()
 
-		self.parents: dict[
-			Union[bpy.types.Object, bpy.types.Collection],
-			Union[bpy.types.Object, bpy.types.Collection]
-		] = {}
-		self.__find_parents(self.scene.collection)
+		if find_parents:
+			self.parents: dict[
+				Union[bpy.types.Object, bpy.types.Collection],
+				Union[bpy.types.Object, bpy.types.Collection]
+			] = {}
+			self.__find_parents(self.scene.collection)
 		
 	def close(self):
 		"""In case you don't want to use `with`"""
