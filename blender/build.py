@@ -1,6 +1,7 @@
 import bpy, os, argparse, getpass
 from uuid import uuid4
 
+from .env_vars import *
 from .transfer_map import *
 from .layers import *
 from .utils import *
@@ -8,10 +9,6 @@ from .utils import *
 class AssetBuilder:
 	"""Constructs an asset by applying layers to the current scene."""
 	def __init__(self, name: str):
-		self.blender_db = os.environ.get("SG_BLEND_DB")
-		if not self.blender_db:
-			raise OSError("Missing environment variable SG_BLEND_DB!")
-		
 		self.asset = name
 		self.uuid = str(uuid4())
 
@@ -19,7 +16,7 @@ class AssetBuilder:
 		"""Returns a list of all files for a layer"""
 
 		# Structure is "master/wip/asset/layer/asset_layer_v001.blend" for now
-		wip_folder = os.path.join(self.blender_db, "wip", self.asset, layer)
+		wip_folder = os.path.join(SG_BLEND_DB, "wip", self.asset, layer)
 		if not os.path.exists(wip_folder):
 			raise NotADirectoryError(f"Missing {layer} folder: {wip_folder}")
 		
@@ -91,7 +88,7 @@ class AssetBuilder:
 	def __update_catalog(self, version: int) -> None:
 		"""Manually updates Blender's Asset Library catalog file"""
 
-		catalog_path = os.path.join(self.blender_db, "build", "blender_assets.cats.txt")
+		catalog_path = os.path.join(SG_BLEND_DB, "build", "blender_assets.cats.txt")
 		catalog_exists = os.path.isfile(catalog_path)
 
 		with open(catalog_path, "a") as catalog:
@@ -108,7 +105,7 @@ class AssetBuilder:
 		`write_catalog` optionally lists this file in the Asset Library.
 		"""
 		# Structure is "master/build/asset/asset_v001.blend" for now
-		asset_folder = os.path.join(self.blender_db, "build", self.asset)
+		asset_folder = os.path.join(SG_BLEND_DB, "build", self.asset)
 		if not os.path.exists(asset_folder):
 			os.makedirs(asset_folder)
 

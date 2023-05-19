@@ -2,6 +2,7 @@ import bpy, os
 from uuid import uuid4
 
 from .build import AssetBuilder
+from .env_vars import *
 from .layers import *
 
 bl_info = {
@@ -18,8 +19,7 @@ bl_info = {
 # TODO: Find somewhere to put this (it won't run in register)
 def setup_asset_library() -> None:
 	"""Registers the build folder to display in the asset library"""
-	blender_db = os.environ.get("SG_BLEND_DB")
-	build_folder = os.path.join(blender_db, "build")
+	build_folder = os.path.join(SG_BLEND_DB, "build")
 	prefs = bpy.context.preferences
 	lib_name = "Asset Builds"
 
@@ -98,7 +98,6 @@ class Publish_Operator(bpy.types.Operator):
 	bl_label = "Publish Asset"
 
 	def execute(self, context):
-		blender_db = os.environ.get("SG_BLEND_DB")
 		props = context.scene.sg_props
 
 		if not props.publish_layer:
@@ -108,7 +107,7 @@ class Publish_Operator(bpy.types.Operator):
 			self.report({"ERROR_INVALID_INPUT"}, "Please type in an asset!")
 			return {"CANCELLED"}
 
-		wip_folder = os.path.join(blender_db, "wip", props.publish_asset)
+		wip_folder = os.path.join(SG_BLEND_DB, "wip", props.publish_asset)
 		if not os.path.exists(wip_folder):
 			if props.dev_make_folder:
 				os.makedirs(wip_folder)
@@ -184,7 +183,6 @@ class Check_Updates_Operator(bpy.types.Operator):
 	bl_label = "Check for Updates"
 
 	def execute(self, context):
-		blender_db = os.environ.get("SG_BLEND_DB")
 		name_set = get_selected_assets(context)
 
 		# Clear previously listed updates
@@ -211,7 +209,7 @@ class Check_Updates_Operator(bpy.types.Operator):
 					if layer in updates[asset]:
 						continue
 
-					folder = os.path.join(blender_db, "wip", asset, layer)
+					folder = os.path.join(SG_BLEND_DB, "wip", asset, layer)
 					if not os.path.exists(folder):
 						continue
 
@@ -336,14 +334,13 @@ class Fetch_Operator(bpy.types.Operator):
 	bl_options = {"REGISTER", "UNDO"}
 
 	def execute(self, context):
-		blender_db = os.environ.get("SG_BLEND_DB")
 		props = context.scene.sg_props
 
 		if not props.fetch_asset:
 			self.report({"ERROR_INVALID_INPUT"}, "Please type in an asset!")
 			return {"CANCELLED"}
 
-		build_folder = os.path.join(blender_db, "build", props.fetch_asset)
+		build_folder = os.path.join(SG_BLEND_DB, "build", props.fetch_asset)
 		if not os.path.exists(build_folder):
 			self.report({"ERROR"}, f"Build folder for '{props.fetch_asset}' doesn't exist yet!")
 			return {"CANCELLED"}
@@ -432,10 +429,6 @@ classes = [
 ]
 
 def register() -> None:
-	if "SG_BLEND_DB" not in os.environ:
-		print("ERROR: Missing environment variable SG_BLEND_DB!")
-		return
-
 	for cls in classes:
 		bpy.utils.register_class(cls)
 
