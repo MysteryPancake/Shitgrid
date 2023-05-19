@@ -29,13 +29,13 @@ class LayerModelling(LayerBase):
 		"fonts", "lattices", "metaballs", "meshes", "volumes", "curves", "grease_pencils",
 		"paint_curves", "hair_curves", "particles", "pointclouds", "shape_keys"
 	]
-	blacklist = {"LIGHT", "LIGHT_PROBE", "ARMATURE", "CAMERA", "SPEAKER"}
+	object_blacklist = {"LIGHT", "LIGHT_PROBE", "ARMATURE", "CAMERA", "SPEAKER"}
 
 	@staticmethod
 	def process(map: TransferMap):
 		# Handle new models
 		for obj in map.new_objs:
-			if obj.type in __class__.blacklist:
+			if obj.type in __class__.object_blacklist:
 				continue
 
 			# Wipe animation data
@@ -52,7 +52,7 @@ class LayerModelling(LayerBase):
 
 		# Handle deleted models
 		for obj in map.deleted_objs:
-			if obj.type in __class__.blacklist:
+			if obj.type in __class__.object_blacklist:
 				continue
 			bpy.data.objects.remove(obj)
 		map.remove_blank_collections()
@@ -122,11 +122,13 @@ class LayerModelling(LayerBase):
 				del sk_original
 				bpy.data.objects.remove(obj_target_original)
 
-			# Remove old and sync existing modifiers
-			for mod in obj_target.modifiers:
-				if mod.name not in [m.name for m in obj_source.modifiers]:
-					print(f"Removing modifier {mod.name}")
-					obj_target.modifiers.remove(mod)
+			# Remove old modifiers
+			# For now, don't remove any modifiers
+
+			#for mod in obj_target.modifiers:
+				#if mod.name not in __class__.modifier_whitelist and mod.name not in [m.name for m in obj_source.modifiers]:
+					#print(f"Removing modifier {mod.name}")
+					#obj_target.modifiers.remove(mod)
 			
 			# Transfer new modifiers
 			for i, mod in enumerate(obj_source.modifiers):
