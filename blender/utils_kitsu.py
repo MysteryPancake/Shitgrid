@@ -344,6 +344,9 @@ def transfer_surfacing(obj_source: bpy.types.Object, obj_target: bpy.types.Objec
 	if not obj_target.data.vertices:
 		print(f"WARNING: Mesh object '{obj_target.name}' has empty object data")
 		return
+	
+	# Placeholder for transfer source object
+	obj_source_original: bpy.types.Object = None
 
 	# Transfer face data
 	if topo_match:
@@ -351,9 +354,14 @@ def transfer_surfacing(obj_source: bpy.types.Object, obj_target: bpy.types.Objec
 			pol_to.material_index = pol_from.material_index
 			pol_to.use_smooth = pol_from.use_smooth
 	else:
+		# Generate new transfer source object, required to fix raycasting issues
+		obj_source_original = bpy.data.objects.new(f"{obj_source.name}.original", obj_source.data)
+		bpy.context.scene.collection.objects.link(obj_source_original)
+
 		depsgraph = bpy.context.evaluated_depsgraph_get()
-		obj_source_eval = obj_source.evaluated_get(depsgraph)
+		obj_source_eval = obj_source_original.evaluated_get(depsgraph)
 		for pol_target in obj_target.data.polygons:
+			# This breaks unless the object is in the same scene, hence the transfer object
 			(hit, loc, norm, face_index) = obj_source_eval.closest_point_on_mesh(pol_target.center)
 			pol_source = obj_source_eval.data.polygons[face_index]
 			pol_target.material_index = pol_source.material_index
@@ -366,8 +374,8 @@ def transfer_surfacing(obj_source: bpy.types.Object, obj_target: bpy.types.Objec
 	else:
 		bpy.ops.object.data_transfer(
 			{
-				"object": obj_source,
-				"active_object": obj_source,
+				"object": obj_source_original,
+				"active_object": obj_source_original,
 				"selected_editable_objects": [obj_target],
 			},
 			data_type="SEAM",
@@ -435,3 +443,6 @@ def transfer_surfacing(obj_source: bpy.types.Object, obj_target: bpy.types.Objec
 			if "preview" in node.image.name:
 				mslot.material.node_tree.nodes.active = node
 				break
+	
+	if obj_source_original:
+		bpy.data.objects.remove(obj_source_original)
