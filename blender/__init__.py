@@ -252,12 +252,18 @@ class Update_Operator(bpy.types.Operator):
 					continue
 
 				# This assumes correct layer ordering from Check_Updates
-				builder = AssetBuilder(item.asset)
-				for layer in item.layers:
-					layer_obj = layer_lookup[layer.name]
-					builder.process(layer_obj, settings, -1)
-					
-			props.update_items.clear()
+				try:
+					builder = AssetBuilder(item.asset)
+					for layer in item.layers:
+						layer_obj = layer_lookup[layer.name]
+						builder.process(layer_obj, settings, -1)
+					item.name = f"{item.asset} (Up to date)"
+					item.layers.clear()
+					item.outdated = False
+				except Exception as err:
+					self.report({"ERROR"}, str(err))
+					return {"CANCELLED"}
+
 			return {"FINISHED"}
 		
 		except Exception as err:

@@ -132,6 +132,14 @@ class TransferMap:
 			if not col.children and not col.objects:
 				bpy.data.collections.remove(col)
 
+	@staticmethod
+	def __wipe_collection(base: bpy.types.Collection) -> None:
+		"""Clears objects and subcollections from a collection"""
+		for obj in base.objects:
+			base.objects.unlink(obj)
+		for col in base.children:
+			base.children.unlink(col)
+
 	def rebuild_collection_parents(self, obj: bpy.types.Object) -> bpy.types.Collection:
 		"""Reconstructs the collection hierarchy of an object"""
 		# Top-level objects don't need special treatment
@@ -145,7 +153,7 @@ class TransferMap:
 			return matching
 		
 		# We don't, wipe and use the other one
-		wipe_collection(parent)
+		self.__wipe_collection(parent)
 		self.__self_reference_collection(parent)
 
 		# Reconstruct missing collections
@@ -162,7 +170,7 @@ class TransferMap:
 				return parent
 			
 			# We don't, wipe and use the other one
-			wipe_collection(top)
+			self.__wipe_collection(top)
 			self.__self_reference_collection(top)
 			top.children.link(bottom)
 

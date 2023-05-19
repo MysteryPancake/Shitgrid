@@ -90,7 +90,12 @@ class LayerModelling(LayerBase):
 								key.data[i].co = point + offset[i]
 				elif obj_target.type == "CURVE":
 					# TODO: proper geometry transfer for curves
+					obj_target_original = bpy.data.objects.new(f"{obj_target.name}.original", obj_target.data)
+					# This overrides material data
 					obj_target.data = obj_source.data
+					# Try to restore material data
+					transfer_surfacing(obj_target_original, obj_target, topo_match)
+					bpy.data.objects.remove(obj_target_original)
 			else:
 				# If topology doesn't match, replace object data and proximity transfer rigging data
 				obj_target_original = bpy.data.objects.new(f"{obj_target.name}.original", obj_target.data)
@@ -98,7 +103,10 @@ class LayerModelling(LayerBase):
 				bpy.context.scene.collection.objects.link(obj_target_original)
 
 				print(f"WARNING: Topology Mismatch! Replacing object data and transferring with potential data loss on '{obj_target.name}'")
+				# This overrides material data
 				obj_target.data = obj_source.data
+				# Try to restore material data
+				transfer_surfacing(obj_target_original, obj_target, topo_match)
 
 				# Transfer weights
 				bpy.ops.object.data_transfer(
@@ -195,132 +203,10 @@ class LayerMaterials(LayerBase):
 	def process(map: TransferMap, settings: TransferSettings):
 		# Handle matching materials
 		for obj_target, obj_source in map.matching_objs.items():
-
-			# Wipe our material slots
-			while len(obj_target.material_slots) > len(obj_source.material_slots):
-				obj_target.active_material_index = len(obj_source.material_slots)
-				bpy.ops.object.material_slot_remove({"object": obj_target})
-
-			# Transfer material slots
-			for idx in range(len(obj_source.material_slots)):
-				if idx >= len(obj_target.material_slots):
-					bpy.ops.object.material_slot_add({"object": obj_target})
-				obj_target.material_slots[idx].link = obj_source.material_slots[idx].link
-				obj_target.material_slots[idx].material = obj_source.material_slots[idx].material
-
-			# Transfer active material slot
-			obj_target.active_material_index = obj_source.active_material_index
-
-			# Transfer material slot assignments for curve
-			if obj_target.type == "CURVE":
-				if not obj_target.data.splines:
-					print(f"WARNING: Curve object '{obj_target.name}' has empty object data")
-					continue
-				for spl_to, spl_from in zip(obj_target.data.splines, obj_source.data.splines):
-					spl_to.material_index = spl_from.material_index
-
-			# Rest of the code applies to meshes only
-			if obj_target.type != "MESH":
-				continue
-
-			if not obj_target.data.vertices:
-				print(f"WARNING: Mesh object '{obj_target.name}' has empty object data")
-				continue
-
 			topo_match = match_topology(obj_source, obj_target)
 			if not topo_match:
 				print(f"WARNING: Mismatching topology, falling back to proximity transfer. (Object '{obj_target.name}')")
-
-			# Transfer face data
-			if topo_match:
-				for pol_to, pol_from in zip(obj_target.data.polygons, obj_source.data.polygons):
-					pol_to.material_index = pol_from.material_index
-					pol_to.use_smooth = pol_from.use_smooth
-			else:
-				depsgraph = bpy.context.evaluated_depsgraph_get()
-				obj_source_eval = obj_source.evaluated_get(depsgraph)
-				for pol_target in obj_target.data.polygons:
-					(hit, loc, norm, face_index) = obj_source_eval.closest_point_on_mesh(pol_target.center)
-					pol_source = obj_source_eval.data.polygons[face_index]
-					pol_target.material_index = pol_source.material_index
-					pol_target.use_smooth = pol_source.use_smooth
-
-			# Transfer UV Seams
-			if topo_match:
-				for edge_from, edge_to in zip(obj_source.data.edges, obj_target.data.edges):
-					edge_to.use_seam = edge_from.use_seam
-			else:
-				bpy.ops.object.data_transfer(
-					{
-						"object": obj_source,
-						"active_object": obj_source,
-						"selected_editable_objects": [obj_target],
-					},
-					data_type="SEAM",
-					edge_mapping="NEAREST",
-					mix_mode="REPLACE",
-				)
-
-			# Wipe our UV layers
-			for _ in range(len(obj_target.data.uv_layers)):
-				obj_target.data.uv_layers.remove(obj_target.data.uv_layers[0])
-
-			# Transfer UV layers
-			if topo_match:
-				for uv_from in obj_source.data.uv_layers:
-					uv_to = obj_target.data.uv_layers.new(name=uv_from.name, do_init=False)
-					for loop in obj_target.data.loops:
-						uv_to.data[loop.index].uv = uv_from.data[loop.index].uv
-			else:
-				for uv_from in obj_source.data.uv_layers:
-					uv_to = obj_target.data.uv_layers.new(name=uv_from.name, do_init=False)
-					transfer_corner_data(obj_source, obj_target, uv_from.data, uv_to.data, data_suffix="uv")
-
-			# Make sure correct layer is active
-			for uv_l in obj_source.data.uv_layers:
-				if uv_l.active_render:
-					obj_target.data.uv_layers[uv_l.name].active_render = True
-					break
-
-			# Wipe our vertex colors
-			for _ in range(len(obj_target.data.vertex_colors)):
-				obj_target.data.vertex_colors.remove(obj_target.data.vertex_colors[0])
-
-			# Transfer vertex colors
-			if topo_match:
-				for vcol_from in obj_source.data.vertex_colors:
-					vcol_to = obj_target.data.vertex_colors.new(name=vcol_from.name, do_init=False)
-					for loop in obj_target.data.loops:
-						vcol_to.data[loop.index].color = vcol_from.data[loop.index].color
-			else:
-				for vcol_from in obj_source.data.vertex_colors:
-					vcol_to = obj_target.data.vertex_colors.new(name=vcol_from.name, do_init=False)
-					transfer_corner_data(obj_source, obj_target, vcol_from.data, vcol_to.data, data_suffix="color")
-
-			# Set 'PREVIEW' vertex color layer as active
-			for idx, vcol in enumerate(obj_target.data.vertex_colors):
-				if vcol.name == "PREVIEW":
-					obj_target.data.vertex_colors.active_index = idx
-					break
-
-			# Set 'Baking' or 'UVMap' UV layer as active
-			for idx, uvlayer in enumerate(obj_target.data.uv_layers):
-				if uvlayer.name == "Baking":
-					obj_target.data.uv_layers.active_index = idx
-					break
-				elif uvlayer.name == "UVMap":
-					obj_target.data.uv_layers.active_index = idx
-
-			# Select preview texture as active if found
-			for mslot in obj_target.material_slots:
-				if not mslot.material or not mslot.material.node_tree:
-					continue
-				for node in mslot.material.node_tree.nodes:
-					if not node.type == "TEX_IMAGE" or not node.image:
-						continue
-					if "preview" in node.image.name:
-						mslot.material.node_tree.nodes.active = node
-						break
+			transfer_surfacing(obj_source, obj_target, topo_match)
 
 class LayerGrooming(LayerBase):
 	"""
