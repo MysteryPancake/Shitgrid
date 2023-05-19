@@ -98,38 +98,41 @@ class LayerModelling(LayerBase):
 					bpy.data.objects.remove(obj_target_original)
 			else:
 				# If topology doesn't match, replace object data and proximity transfer rigging data
+				print(f"WARNING: Topology Mismatch! Replacing object data and transferring with potential data loss on '{obj_target.name}'")
+
 				obj_target_original = bpy.data.objects.new(f"{obj_target.name}.original", obj_target.data)
-				sk_original = obj_target.data.shape_keys.copy() if obj_target.data.shape_keys else None
+				sk_original = None
+				if hasattr(obj_target.data, "shape_keys") and obj_target.data.shape_keys:
+					sk_original = obj_target.data.shape_keys.copy()
 				bpy.context.scene.collection.objects.link(obj_target_original)
 
-				print(f"WARNING: Topology Mismatch! Replacing object data and transferring with potential data loss on '{obj_target.name}'")
 				# This overrides material data
 				obj_target.data = obj_source.data
+
 				# Try to restore material data
 				transfer_surfacing(obj_target_original, obj_target, topo_match)
 
-				# Transfer weights
-				bpy.ops.object.data_transfer(
-					{
-						"object": obj_target_original,
-						"active_object": obj_target_original,
-						"selected_editable_objects": [obj_target],
-					},
-					data_type="VGROUP_WEIGHTS",
-					use_create=True,
-					vert_mapping='POLYINTERP_NEAREST',
-					layers_select_src="ALL",
-					layers_select_dst="NAME",
-					mix_mode="REPLACE",
-				)
+				if hasattr(obj_target.data, "shape_keys"):
+					# Transfer weights
+					bpy.ops.object.data_transfer(
+						{
+							"object": obj_target_original,
+							"active_object": obj_target_original,
+							"selected_editable_objects": [obj_target],
+						},
+						data_type="VGROUP_WEIGHTS",
+						use_create=True,
+						vert_mapping='POLYINTERP_NEAREST',
+						layers_select_src="ALL",
+						layers_select_dst="NAME",
+						mix_mode="REPLACE",
+					)
+					# Transfer shapekeys
+					transfer_shapekeys_proximity(obj_target_original, obj_target)
+					# Transfer drivers
+					copy_drivers(sk_original, obj_target.data.shape_keys)
+					del sk_original
 
-				# Transfer shapekeys
-				transfer_shapekeys_proximity(obj_target_original, obj_target)
-
-				# Transfer drivers
-				copy_drivers(sk_original, obj_target.data.shape_keys)
-
-				del sk_original
 				bpy.data.objects.remove(obj_target_original)
 
 			# Remove old modifiers
