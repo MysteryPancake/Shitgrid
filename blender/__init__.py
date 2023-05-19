@@ -248,16 +248,21 @@ class Update_Operator(bpy.types.Operator):
 				# Skip unchecked items
 				if not item.checked or not item.outdated:
 					continue
-
-				# This assumes correct layer ordering from Check_Updates
 				try:
+					# Avoid rebuilding material data in other layers
+					replacing = LayerMaterials.folder in [layer.name for layer in item.layers]
+					settings.replacing_materials = replacing
+
+					# This assumes correct layer ordering from Check_Updates
 					builder = AssetBuilder(item.asset)
 					for layer in item.layers:
 						layer_obj = layer_lookup[layer.name]
 						builder.process(layer_obj, settings, -1)
+
 					item.name = f"{item.asset} (Up to date)"
 					item.layers.clear()
 					item.outdated = False
+
 				except Exception as err:
 					self.report({"ERROR"}, str(err))
 					return {"CANCELLED"}

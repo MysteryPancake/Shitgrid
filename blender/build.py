@@ -141,12 +141,14 @@ if __name__ == "__main__":
 
 	settings = TransferSettings()
 	settings.update_transform = True
+	# Avoid rebuilding material data in other layers
+	settings.replacing_materials = True
 
 	builder = AssetBuilder(args.asset)
 	builder.process(LayerModelling, settings)
-	builder.process(LayerMaterials, settings)
 	builder.process(LayerRigging, settings)
 	builder.process(LayerGrooming, settings)
+	builder.process(LayerMaterials, settings)
 	
 	# When all layers are finished, this would be nice:
 	# for layer in listed_layers:

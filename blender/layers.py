@@ -98,8 +98,9 @@ class LayerModelling(LayerBase):
 					obj_target_original = bpy.data.objects.new(f"{obj_target.name}.original", obj_target.data)
 					# This overrides material data
 					obj_target.data = obj_source.data
-					# Try to restore material data
-					transfer_surfacing(obj_target_original, obj_target, topo_match)
+					# Try to restore material data (slow)
+					if not settings.replacing_materials:
+						transfer_surfacing(obj_target_original, obj_target, topo_match)
 					bpy.data.objects.remove(obj_target_original)
 			else:
 				# If topology doesn't match, replace object data and proximity transfer shapekeys
@@ -113,10 +114,11 @@ class LayerModelling(LayerBase):
 
 				# This overrides material data
 				obj_target.data = obj_source.data
-				# Try to restore material data
-				transfer_surfacing(obj_target_original, obj_target, topo_match)
+				# Try to restore material data (slow)
+				if not settings.replacing_materials:
+					transfer_surfacing(obj_target_original, obj_target, topo_match)
 
-				if hasattr(obj_target.data, "shape_keys"):
+				if hasattr(obj_target.data, "vertex_groups") and obj_target_original.data.vertex_groups:
 					# Transfer vertex groups
 					bpy.ops.object.data_transfer(
 						{
@@ -131,6 +133,8 @@ class LayerModelling(LayerBase):
 						layers_select_dst="NAME",
 						mix_mode="REPLACE",
 					)
+				
+				if hasattr(obj_target.data, "shape_keys") and obj_target_original.data.shape_keys:
 					# Transfer shapekeys
 					transfer_shapekeys_proximity(obj_target_original, obj_target)
 					# Transfer shapekey drivers
@@ -282,7 +286,7 @@ class LayerLighting(LayerBase):
 		# Transfer world (copy_attributes doesn't work for some reason)
 		bpy.context.scene.world = map.scene.world
 
-listed_layers = [LayerModelling, LayerMaterials, LayerGrooming, LayerRigging, LayerAssembly, LayerAnimation, LayerLighting]
+listed_layers = [LayerModelling, LayerGrooming, LayerRigging, LayerMaterials, LayerAssembly, LayerAnimation, LayerLighting]
 
 # For easier data access
 layer_menu = []

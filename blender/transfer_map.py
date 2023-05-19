@@ -6,6 +6,8 @@ from .utils import *
 class TransferSettings:
 	"""Settings used when applying build layers"""
 	update_transform: bool = True
+	# Avoid rebuilding material data in other layers
+	replacing_materials: bool = False
 
 class TransferMap:
 	"""
