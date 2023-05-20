@@ -20,14 +20,9 @@ if (app.locals.WEB_DB) {
 	return;
 }
 
-// Contains subfolders for each department, "modelling", "surfacing", etc
-app.locals.BLEND_DB = process.env.SG_BLEND_DB;
-if (app.locals.BLEND_DB) {
-	console.log(`Blender database set to ${app.locals.BLEND_DB}`);
-} else {
-	console.error("Missing environment variable SG_BLEND_DB!");
-	return;
-}
+// Hardcoded for now
+app.locals.BLEND_DB = "C:\\Users\\MysteryPancake\\Desktop\\Blender_Pipeline\\db_blend";
+console.log(`Blender database set to ${app.locals.BLEND_DB}`);
 
 // Allow frontend and backend to communicate on the same device
 app.use(cors());
