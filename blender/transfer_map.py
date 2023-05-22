@@ -42,11 +42,8 @@ class TransferMap:
 
 		for block in data_blocks:
 			name = block.get("sg_asset")
-			if not name:
-				continue
-			
 			# Ignore blocks outside our namespace
-			if name != self.file.name:
+			if not name or name != self.file.name:
 				continue
 
 			id = block.get("sg_id")

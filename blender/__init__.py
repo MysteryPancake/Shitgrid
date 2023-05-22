@@ -78,6 +78,7 @@ class Properties(bpy.types.PropertyGroup):
 	fetch_asset: bpy.props.StringProperty(name="Asset Name")
 
 	# Update properties
+	show_updates: bpy.props.BoolProperty(default=False)
 	update_items: bpy.props.CollectionProperty(type=Update_Item)
 	update_transform: bpy.props.BoolProperty(name="Update Transform", default=True)
 
@@ -165,34 +166,18 @@ class Publish_Panel(bpy.types.Panel):
 		layout.prop(props, "publish_layer")
 		layout.operator(Publish_Operator.bl_idname, icon="EXPORT")
 
-def get_selected_assets(context):
-	"""Returns names of selected assets, or visible assets when none are selected"""
-	objects = context.selected_objects
-	if not objects:
-		objects = context.visible_objects
-	names = set()
-	for obj in objects:
-		name = obj.get("sg_asset")
-		if name:
-			names.add(name)
-	return names
-
 class Check_Updates_Operator(bpy.types.Operator):
 	"""Check if asset updates are available"""
 	bl_idname = "pipeline.check_updates"
 	bl_label = "Check for Updates"
 
 	def execute(self, context):
-		name_set = get_selected_assets(context)
-
 		# Clear previously listed updates
 		props = context.scene.sg_props
 		props.update_items.clear()
 
 		# Using a list instead of a set to preserve layer order
 		updates: dict[str, list[Any]] = {}
-		for asset in name_set:
-			updates[asset] = []
 
 		# Find outdated data blocks
 		for layer in listed_layers:
@@ -200,9 +185,11 @@ class Check_Updates_Operator(bpy.types.Operator):
 				for block in getattr(bpy.data, data_type):
 
 					asset = block.get("sg_asset")
-					# Blocks without sg_asset get skipped here too
-					if asset not in name_set:
+					if not asset:
 						continue
+
+					if asset not in updates:
+						updates[asset] = []
 
 					# Don't check outdated layers again
 					layer = block.get("sg_layer")
@@ -219,7 +206,7 @@ class Check_Updates_Operator(bpy.types.Operator):
 						updates[asset].append(layer)
 
 		# Build update list UI
-		for asset in name_set:
+		for asset in updates:
 			layer_order = updates[asset]
 			layers = ", ".join(layer_order) if layer_order else "Up to date"
 
@@ -231,6 +218,8 @@ class Check_Updates_Operator(bpy.types.Operator):
 				layer = item.layers.add()
 				layer.name = layer_name
 			item.outdated = bool(layer_order)
+		
+		props.show_updates = True
 
 		return {"FINISHED"}
 
@@ -280,7 +269,7 @@ class Update_Close_Operator(bpy.types.Operator):
 
 	def execute(self, context):
 		props = context.scene.sg_props
-		props.update_items.clear()
+		props.show_updates = False
 		return {"FINISHED"}
 
 class Update_Panel(bpy.types.Panel):
@@ -294,43 +283,40 @@ class Update_Panel(bpy.types.Panel):
 		layout = self.layout
 		props = context.scene.sg_props
 
-		# List of selected assets
-		name_set = get_selected_assets(context)
-		names = ", ".join(name_set) if name_set else "None found"
-		label = names if context.selected_objects else f"All ({names})"
-		layout.label(text=f"Selected: {label}")
-
 		# Check updates and close button
-		if props.update_items:
+		if props.show_updates:
 			layout.operator(Update_Close_Operator.bl_idname, icon="PANEL_CLOSE")
-		elif name_set:
+		else:
 			layout.operator(Check_Updates_Operator.bl_idname, icon="FILE_REFRESH")
-
-		if not props.update_items:
-			return
 		
-		# List of available updates
-		outdated = False
-		update_list = layout.box().column()
-		update_list.label(text="Update Status:")
-		for item in props.update_items:
-			outdated = outdated or item.outdated
-			row = update_list.row()
-			row.enabled = item.outdated
-			row.prop(
-				item,
-				"checked",
-				icon="CHECKBOX_HLT" if item.checked or not item.outdated else "CHECKBOX_DEHLT",
-				text="",
-				emboss=False
-			)
-			row.label(text=item.name)
+		if not props.show_updates:
+			return
 
-		if outdated:
-			# Update button
-			layout.operator(Update_Operator.bl_idname, icon="SORT_ASC")
-			# Update transform checkbox
-			layout.prop(props, "update_transform")
+		update_list = layout.box().column()
+		if props.update_items:
+			
+			outdated = False
+			update_list.label(text="Update Status:")
+			for item in props.update_items:
+				outdated = outdated or item.outdated
+				row = update_list.row()
+				row.enabled = item.outdated
+				row.prop(
+					item,
+					"checked",
+					icon="CHECKBOX_HLT" if item.checked or not item.outdated else "CHECKBOX_DEHLT",
+					text="",
+					emboss=False
+				)
+				row.label(text=item.name)
+
+			if outdated:
+				# Update button
+				layout.operator(Update_Operator.bl_idname, icon="SORT_ASC")
+				# Update transform checkbox
+				layout.prop(props, "update_transform")
+		else:
+			update_list.label(text="No assets found!")
 
 class Fetch_Operator(bpy.types.Operator):
 	"""Fetch the latest approved asset build"""
@@ -425,12 +411,69 @@ class Build_Panel(bpy.types.Panel):
 	def poll(cls, context):
 		return context.preferences.addons[__name__].preferences.dev_mode
 
+def get_selected_blocks(context: bpy.types.Context) -> set[Any]:
+	"""Gets selected asset data blocks in the outliner"""
+	blocks = set()
+	for area in context.screen.areas:
+		if area.type != "OUTLINER":
+			continue
+		with context.temp_override(window=context.window, area=area):
+			for block in context.selected_ids:
+				if block.get("sg_asset"):
+					blocks.add(block)
+	return blocks
+
+class Clear_Data_Operator(bpy.types.Operator):
+	"""Clears custom data used to tag asset data blocks"""
+	bl_idname = "pipeline.clear_data"
+	bl_label = "Clear Selected Data"
+	bl_options = {"REGISTER", "UNDO"}
+
+	def execute(self, context):
+		for block in get_selected_blocks(context):
+			del block["sg_asset"]
+			del block["sg_layer"]
+			del block["sg_version"]
+			del block["sg_id"]
+		return {"FINISHED"}
+
+class Inspect_Panel(bpy.types.Panel):
+	bl_label = "Inspect"
+	bl_idname = "ALA_PT_Inspect"
+	bl_space_type = "VIEW_3D"
+	bl_region_type = "UI"
+	bl_category = "Shitgrid"
+
+	def draw(self, context):
+		layout = self.layout
+		blocks = get_selected_blocks(context)
+		if not blocks:
+			layout.label(text="No assets selected")
+			return
+		
+		# Yuck code here, no idea how to draw a table properly
+		cols = layout.column_flow(columns=4)
+		cols.label(text="Type")
+		cols.label(text="Asset")
+		cols.label(text="Layer")
+		cols.label(text="Version")
+		item_list = layout.box().column()
+		for block in blocks:
+			# Table columns
+			cols = item_list.column_flow(columns=4)
+			cols.label(text=type(block).__name__)
+			cols.label(text=block.get("sg_asset", "None"))
+			cols.label(text=block.get("sg_layer", "None"))
+			cols.label(text=str(block.get("sg_version", "None")))
+		# Clear asset data button
+		layout.operator(Clear_Data_Operator.bl_idname, icon="UNLINKED")
+
 # Dump all classes to register in here
 classes = [
-	Publish_Panel, Update_Panel, Fetch_Panel, Build_Panel,
-	Publish_Operator, Check_Updates_Operator, Update_Operator,
-	Update_Close_Operator, Fetch_Operator, Dev_Build_Operator,
-	Update_Item, Properties, Preferences
+	Publish_Panel, Update_Panel, Fetch_Panel, Inspect_Panel, Build_Panel,
+	Publish_Operator, Check_Updates_Operator, Update_Operator, Clear_Data_Operator,
+	Update_Close_Operator, Fetch_Operator, Dev_Build_Operator, Update_Item,
+	Properties, Preferences
 ]
 
 def register() -> None:

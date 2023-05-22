@@ -47,6 +47,14 @@ class LayerModelling(LayerBase):
 			for _ in range(len(obj.material_slots)):
 				bpy.ops.object.material_slot_remove({"object": obj})
 
+			# Wipe shape keys, these belong in rigging
+			if hasattr(obj.data, "shape_keys"):
+				obj.shape_key_clear()
+			
+			# Wipe vertex groups, these belong in rigging
+			if obj.vertex_groups:
+				obj.vertex_groups.clear()
+
 			# Rebuild collection hierarchy
 			parent = map.rebuild_collection_parents(obj)
 			parent.objects.link(obj)
@@ -108,7 +116,8 @@ class LayerModelling(LayerBase):
 
 				obj_target_original = bpy.data.objects.new(f"{obj_target.name}.original", obj_target.data)
 				sk_original = None
-				if hasattr(obj_target.data, "shape_keys") and obj_target.data.shape_keys:
+				has_keys = hasattr(obj_target.data, "shape_keys") and obj_target.data.shape_keys
+				if has_keys:
 					sk_original = obj_target.data.shape_keys.copy()
 				bpy.context.scene.collection.objects.link(obj_target_original)
 
@@ -118,7 +127,7 @@ class LayerModelling(LayerBase):
 				if not settings.replacing_materials:
 					transfer_surfacing(obj_target_original, obj_target, topo_match)
 
-				if hasattr(obj_target.data, "vertex_groups") and obj_target_original.data.vertex_groups:
+				if obj_target_original.vertex_groups:
 					# Transfer vertex groups
 					bpy.ops.object.data_transfer(
 						{
@@ -134,7 +143,7 @@ class LayerModelling(LayerBase):
 						mix_mode="REPLACE",
 					)
 				
-				if hasattr(obj_target.data, "shape_keys") and obj_target_original.data.shape_keys:
+				if has_keys:
 					# Transfer shapekeys
 					transfer_shapekeys_proximity(obj_target_original, obj_target)
 					# Transfer shapekey drivers
@@ -171,7 +180,7 @@ class LayerMaterials(LayerBase):
 	label = "Surfacing / UVs"
 	# Sub-object data blocks which could be part of this layer
 	trigger_update = [
-		"materials", "textures", "images", "brushes", "palettes", "linestyles"
+		"materials", "textures", "images", "brushes", "palettes"
 	]
 	# This layer doesn't need parents, skip calculating it
 	find_parents = False
@@ -206,7 +215,7 @@ class LayerRigging(LayerBase):
 	TODO
 	"""
 	folder = "rigs"
-	label = "(TODO) Rigging"
+	label = "(TODO) Rigging / Shape Keys / Vertex Groups"
 	# Sub-object data blocks which could be part of this layer
 	trigger_update = ["armatures", "shape_keys"]
 
