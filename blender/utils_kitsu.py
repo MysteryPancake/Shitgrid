@@ -107,7 +107,7 @@ def copy_parenting(source_ob: bpy.types.Object, target_ob: bpy.types.Object) -> 
 	target_ob.parent_bone = source_ob.parent_bone
 	target_ob.matrix_parent_inverse = source_ob.matrix_parent_inverse.copy()
 
-_invalid_keys: set[str] = {"group", "is_valid", "rna_type", "bl_rna"}
+_invalid_keys: "set[str]" = {"group", "is_valid", "rna_type", "bl_rna"}
 
 def copy_attributes(a: Any, b: Any) -> None:
 	keys = dir(a)

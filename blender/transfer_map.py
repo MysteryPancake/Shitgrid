@@ -37,7 +37,7 @@ class TransferMap:
 			# For rare case in modelling layer
 			self.matching_objs_target[source] = target
 
-	def __find_ids(self, data_blocks: list[Any], ids: dict[str, list[Any]]) -> None:
+	def __find_ids(self, data_blocks: "list[Any]", ids: "dict[str, list[Any]]") -> None:
 		"""Builds a dict to easily check whether an ID exists"""
 
 		for block in data_blocks:

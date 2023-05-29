@@ -9,7 +9,7 @@ from .utils_kitsu import *
 class LayerBase(ABCMeta):
 	folder: str = NotImplemented
 	label: str = NotImplemented
-	trigger_update: list[str] = NotImplemented
+	trigger_update: "list[str]" = NotImplemented
 	find_parents: bool = True
 
 	@staticmethod

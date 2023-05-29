@@ -1,4 +1,5 @@
 import bpy, os
+from bpy.app.handlers import persistent
 from uuid import uuid4
 
 from .build import AssetBuilder
@@ -54,6 +55,9 @@ def tag_data(data, name: str, layer: str, version: int) -> None:
 class Preferences(bpy.types.AddonPreferences):
 	"""Preferences for this addon"""
 	bl_idname = __name__
+	# Whether to check for updates on file load
+	auto_update: bpy.props.BoolProperty(name="Auto Update", default=False)
+	# Whether to show developer options on UI
 	dev_mode: bpy.props.BoolProperty(name="Developer Mode", default=False)
 
 	def draw(self, context):
@@ -70,6 +74,14 @@ class Update_Item(bpy.types.PropertyGroup):
 
 class Properties(bpy.types.PropertyGroup):
 	"""Properties shown in the UI panel"""
+	def get_auto_update(self):
+		prefs = bpy.context.preferences
+		return prefs.addons[__name__].preferences.auto_update
+	
+	def set_auto_update(self, value):
+		prefs = bpy.context.preferences
+		prefs.addons[__name__].preferences.auto_update = value
+
 	# Publish properties
 	publish_layer: bpy.props.EnumProperty(name="Layer", items=layer_menu)
 	publish_asset: bpy.props.StringProperty(name="Asset Name")
@@ -78,7 +90,8 @@ class Properties(bpy.types.PropertyGroup):
 	fetch_asset: bpy.props.StringProperty(name="Asset Name")
 
 	# Update properties
-	show_updates: bpy.props.BoolProperty(default=False)
+	auto_update: bpy.props.BoolProperty(name="Auto Update", default=False, get=get_auto_update, set=set_auto_update)
+	show_update_list: bpy.props.BoolProperty(default=False)
 	update_items: bpy.props.CollectionProperty(type=Update_Item)
 	update_transform: bpy.props.BoolProperty(name="Update Transform", default=True)
 
@@ -166,6 +179,37 @@ class Publish_Panel(bpy.types.Panel):
 		layout.prop(props, "publish_layer")
 		layout.operator(Publish_Operator.bl_idname, icon="EXPORT")
 
+def get_updates() -> "dict[str, list[Any]]":
+	"""Builds a list of layer updates per asset"""
+	# Using a list instead of a set to preserve layer order
+	updates: dict[str, list[Any]] = {}
+
+	# Find outdated data blocks
+	for layer in listed_layers:
+		for data_type in layer.trigger_update:
+			for block in getattr(bpy.data, data_type):
+				asset = block.get("sg_asset")
+				if not asset:
+					continue
+
+				if asset not in updates:
+					updates[asset] = []
+
+				# Don't check outdated layers again
+				layer = block.get("sg_layer")
+				if layer in updates[asset]:
+					continue
+
+				folder = os.path.join(SG_BLEND_DB, "wip", asset, layer)
+				if not os.path.exists(folder):
+					continue
+
+				current = block.get("sg_version")
+				latest = len([p for p in os.listdir(folder) if p.endswith(".blend")])
+				if latest > current and layer not in updates[asset]:
+					updates[asset].append(layer)
+	return updates
+
 class Check_Updates_Operator(bpy.types.Operator):
 	"""Check if asset updates are available"""
 	bl_idname = "pipeline.check_updates"
@@ -176,36 +220,8 @@ class Check_Updates_Operator(bpy.types.Operator):
 		props = context.scene.sg_props
 		props.update_items.clear()
 
-		# Using a list instead of a set to preserve layer order
-		updates: dict[str, list[Any]] = {}
-
-		# Find outdated data blocks
-		for layer in listed_layers:
-			for data_type in layer.trigger_update:
-				for block in getattr(bpy.data, data_type):
-
-					asset = block.get("sg_asset")
-					if not asset:
-						continue
-
-					if asset not in updates:
-						updates[asset] = []
-
-					# Don't check outdated layers again
-					layer = block.get("sg_layer")
-					if layer in updates[asset]:
-						continue
-
-					folder = os.path.join(SG_BLEND_DB, "wip", asset, layer)
-					if not os.path.exists(folder):
-						continue
-
-					current = block.get("sg_version")
-					latest = len([p for p in os.listdir(folder) if p.endswith(".blend")])
-					if latest > current and layer not in updates[asset]:
-						updates[asset].append(layer)
-
 		# Build update list UI
+		updates = get_updates()
 		for asset in updates:
 			layer_order = updates[asset]
 			layers = ", ".join(layer_order) if layer_order else "Up to date"
@@ -219,7 +235,7 @@ class Check_Updates_Operator(bpy.types.Operator):
 				layer.name = layer_name
 			item.outdated = bool(layer_order)
 		
-		props.show_updates = True
+		props.show_update_list = True
 
 		return {"FINISHED"}
 
@@ -239,8 +255,8 @@ class Update_Operator(bpy.types.Operator):
 					continue
 				try:
 					# Avoid rebuilding material data in other layers
-					replacing = LayerMaterials.folder in [layer.name for layer in item.layers]
-					settings.replacing_materials = replacing
+					replacing_mats = LayerMaterials.folder in [layer.name for layer in item.layers]
+					settings.replacing_materials = replacing_mats
 
 					# This assumes correct layer ordering from Check_Updates
 					builder = AssetBuilder(item.asset)
@@ -269,7 +285,7 @@ class Update_Close_Operator(bpy.types.Operator):
 
 	def execute(self, context):
 		props = context.scene.sg_props
-		props.show_updates = False
+		props.show_update_list = False
 		return {"FINISHED"}
 
 class Update_Panel(bpy.types.Panel):
@@ -283,13 +299,16 @@ class Update_Panel(bpy.types.Panel):
 		layout = self.layout
 		props = context.scene.sg_props
 
+		# Auto-update button
+		layout.prop(props, "auto_update")
+
 		# Check updates and close button
-		if props.show_updates:
+		if props.show_update_list:
 			layout.operator(Update_Close_Operator.bl_idname, icon="PANEL_CLOSE")
 		else:
 			layout.operator(Check_Updates_Operator.bl_idname, icon="FILE_REFRESH")
 		
-		if not props.show_updates:
+		if not props.show_update_list:
 			return
 
 		update_list = layout.box().column()
@@ -411,7 +430,7 @@ class Build_Panel(bpy.types.Panel):
 	def poll(cls, context):
 		return context.preferences.addons[__name__].preferences.dev_mode
 
-def get_selected_blocks(context: bpy.types.Context) -> set[Any]:
+def get_selected_blocks(context: bpy.types.Context) -> "set[Any]":
 	"""Gets selected asset data blocks in the outliner"""
 	blocks = set()
 	for area in context.screen.areas:
@@ -468,6 +487,30 @@ class Inspect_Panel(bpy.types.Panel):
 		# Clear asset data button
 		layout.operator(Clear_Data_Operator.bl_idname, icon="UNLINKED")
 
+@persistent
+def load_handler(dummy):
+	# Auto-update if required
+	props = bpy.context.scene.sg_props
+	if not props.auto_update:
+		return
+
+	settings = get_transfer_settings(props)
+	updates = get_updates()
+	for asset in updates:
+		try:
+			layers = updates[asset]
+			
+			# Avoid rebuilding material data in other layers
+			replacing_mats = LayerMaterials.folder in layers
+			settings.replacing_materials = replacing_mats
+			
+			builder = AssetBuilder(asset)
+			for layer in layers:
+				layer_obj = layer_lookup[layer]
+				builder.process(layer_obj, settings, -1)
+		except Exception:
+			pass
+
 # Dump all classes to register in here
 classes = [
 	Publish_Panel, Update_Panel, Fetch_Panel, Inspect_Panel, Build_Panel,
@@ -482,6 +525,7 @@ def register() -> None:
 
 	scn = bpy.types.Scene
 	scn.sg_props = bpy.props.PointerProperty(type=Properties)
+	bpy.app.handlers.load_post.append(load_handler)
 
 def unregister() -> None:
 	scn = bpy.types.Scene
@@ -489,6 +533,7 @@ def unregister() -> None:
 	
 	for cls in classes:
 		bpy.utils.unregister_class(cls)
+	bpy.app.handlers.load_post.remove(load_handler)
 
 if __name__ == "__main__":
 	register()
