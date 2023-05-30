@@ -57,12 +57,15 @@ class Preferences(bpy.types.AddonPreferences):
 	bl_idname = __name__
 	# Whether to check for updates on file load
 	auto_update: bpy.props.BoolProperty(name="Auto Update", default=False)
+	# Whether to automatically make an asset folder
+	make_folder: bpy.props.BoolProperty(name="Make asset folder if missing", default=True)
 	# Whether to show developer options on UI
-	dev_mode: bpy.props.BoolProperty(name="Developer Mode", default=False)
+	dev_mode: bpy.props.BoolProperty(name="Developer Mode", default=True)
 
 	def draw(self, context):
 		layout = self.layout
 		layout.prop(self, "dev_mode")
+		layout.prop(self, "make_folder")
 
 class Update_Item(bpy.types.PropertyGroup):
 	"""Properties for items displayed in the update list"""
@@ -74,14 +77,6 @@ class Update_Item(bpy.types.PropertyGroup):
 
 class Properties(bpy.types.PropertyGroup):
 	"""Properties shown in the UI panel"""
-	def get_auto_update(self):
-		prefs = bpy.context.preferences
-		return prefs.addons[__name__].preferences.auto_update
-	
-	def set_auto_update(self, value):
-		prefs = bpy.context.preferences
-		prefs.addons[__name__].preferences.auto_update = value
-
 	# Publish properties
 	publish_layer: bpy.props.EnumProperty(name="Layer", items=layer_menu)
 	publish_asset: bpy.props.StringProperty(name="Asset Name")
@@ -90,13 +85,11 @@ class Properties(bpy.types.PropertyGroup):
 	fetch_asset: bpy.props.StringProperty(name="Asset Name")
 
 	# Update properties
-	auto_update: bpy.props.BoolProperty(name="Auto Update", default=False, get=get_auto_update, set=set_auto_update)
 	show_update_list: bpy.props.BoolProperty(default=False)
 	update_items: bpy.props.CollectionProperty(type=Update_Item)
 	update_transform: bpy.props.BoolProperty(name="Update Transform", default=True)
 
 	# Developer properties
-	dev_make_folder: bpy.props.BoolProperty(name="(DEV) Make asset if missing", default=False)
 	dev_build_layer: bpy.props.EnumProperty(name="Layer", items=layer_menu)
 	dev_build_version: bpy.props.IntProperty(name="Version", default=1)
 
@@ -123,10 +116,10 @@ class Publish_Operator(bpy.types.Operator):
 
 		wip_folder = os.path.join(SG_BLEND_DB, "wip", props.publish_asset)
 		if not os.path.exists(wip_folder):
-			if props.dev_make_folder:
+			if context.preferences.addons[__name__].preferences.make_folder:
 				os.makedirs(wip_folder)
 			else:
-				self.report({"ERROR"}, f"Asset '{props.publish_asset}' doesn't exist yet! Add it on the website.")
+				self.report({"ERROR"}, f"Asset folder '{props.publish_asset}' doesn't exist yet!")
 				return {"CANCELLED"}
 
 		# Structure is "master/wip/asset/layer/asset_layer_v001.blend" for now
@@ -173,8 +166,6 @@ class Publish_Panel(bpy.types.Panel):
 	def draw(self, context):
 		props = context.scene.sg_props
 		layout = self.layout
-		if context.preferences.addons[__name__].preferences.dev_mode:
-			layout.prop(props, "dev_make_folder")
 		layout.prop(props, "publish_asset")
 		layout.prop(props, "publish_layer")
 		layout.operator(Publish_Operator.bl_idname, icon="EXPORT")
@@ -253,24 +244,22 @@ class Update_Operator(bpy.types.Operator):
 				# Skip unchecked items
 				if not item.checked or not item.outdated:
 					continue
-				try:
-					# Avoid rebuilding material data in other layers
-					replacing_mats = LayerMaterials.folder in [layer.name for layer in item.layers]
-					settings.replacing_materials = replacing_mats
+				# Avoid rebuilding material data in other layers
+				replacing_mats = LayerMaterials.folder in [layer.name for layer in item.layers]
+				settings.replacing_materials = replacing_mats
 
-					# This assumes correct layer ordering from Check_Updates
-					builder = AssetBuilder(item.asset)
-					for layer in item.layers:
-						layer_obj = layer_lookup[layer.name]
+				# This assumes correct layer ordering from Check_Updates
+				builder = AssetBuilder(item.asset)
+				for layer in item.layers:
+					layer_obj = layer_lookup[layer.name]
+					try:
 						builder.process(layer_obj, settings, -1)
+					except Exception as err:
+						self.report({"WARNING"}, str(err))
 
-					item.name = f"{item.asset} (Up to date)"
-					item.layers.clear()
-					item.outdated = False
-
-				except Exception as err:
-					self.report({"ERROR"}, str(err))
-					return {"CANCELLED"}
+				item.name = f"{item.asset} (Up to date)"
+				item.layers.clear()
+				item.outdated = False
 
 			return {"FINISHED"}
 		
@@ -300,7 +289,7 @@ class Update_Panel(bpy.types.Panel):
 		props = context.scene.sg_props
 
 		# Auto-update button
-		layout.prop(props, "auto_update")
+		layout.prop(context.preferences.addons[__name__].preferences, "auto_update")
 
 		# Check updates and close button
 		if props.show_update_list:
@@ -350,25 +339,40 @@ class Fetch_Operator(bpy.types.Operator):
 			self.report({"ERROR_INVALID_INPUT"}, "Please type in an asset!")
 			return {"CANCELLED"}
 
-		build_folder = os.path.join(SG_BLEND_DB, "build", props.fetch_asset)
-		if not os.path.exists(build_folder):
-			self.report({"ERROR"}, f"Build folder for '{props.fetch_asset}' doesn't exist yet!")
-			return {"CANCELLED"}
+		import_build = False
+		if import_build:
+			# Import prebuilt asset, simplest case
+			build_folder = os.path.join(SG_BLEND_DB, "build", props.fetch_asset)
+			if not os.path.exists(build_folder):
+				self.report({"ERROR"}, f"Build folder for '{props.fetch_asset}' doesn't exist yet!")
+				return {"CANCELLED"}
 
-		# Sort by name to retrieve correct version order
-		versions = sorted([os.path.join(build_folder, f) for f in os.listdir(build_folder) if f.endswith(".blend")])
-		if not versions:
-			self.report({"ERROR"}, f"Builds for '{props.fetch_asset}' don't exist yet!")
-			return {"CANCELLED"}
+			# Sort by name to retrieve correct version order
+			versions = sorted([os.path.join(build_folder, f) for f in os.listdir(build_folder) if f.endswith(".blend")])
+			if not versions:
+				self.report({"ERROR"}, f"Builds for '{props.fetch_asset}' don't exist yet!")
+				return {"CANCELLED"}
 
-		# Assume top collection is the root we need to import
-		latest_path = versions[-1]
-		with bpy.data.libraries.load(latest_path, link=False) as (source_data, target_data):
-			target_data.collections = [source_data.collections[0]]
+			# Assume top collection is the root we need to import
+			latest_path = versions[-1]
+			with bpy.data.libraries.load(latest_path, link=False) as (source_data, target_data):
+				target_data.collections = [source_data.collections[0]]
 
-		# Add to our Scene Collection
-		for col in target_data.collections:
-			context.scene.collection.children.link(col)
+			# Add to our Scene Collection
+			for col in target_data.collections:
+				context.scene.collection.children.link(col)
+		else:
+			# Build asset live, slower case
+			settings = get_transfer_settings(props)
+			# Avoid rebuilding material data in other layers
+			settings.replacing_materials = True
+
+			builder = AssetBuilder(props.fetch_asset)
+			for layer in listed_layers:
+				try:
+					builder.process(layer, settings, -1)
+				except Exception as err:
+					self.report({"WARNING"}, str(err))
 
 		return {"FINISHED"}
 
@@ -396,10 +400,10 @@ class Dev_Build_Operator(bpy.types.Operator):
 		if not props.fetch_asset:
 			self.report({"ERROR_INVALID_INPUT"}, "Please type in an asset!")
 			return {"CANCELLED"}
+		builder = AssetBuilder(props.fetch_asset)
+		settings = get_transfer_settings(props)
+		layer = layer_lookup[props.dev_build_layer]
 		try:
-			builder = AssetBuilder(props.fetch_asset)
-			settings = get_transfer_settings(props)
-			layer = layer_lookup[props.dev_build_layer]
 			builder.process(layer, settings, props.dev_build_version)
 			return {"FINISHED"}
 		except Exception as err:
@@ -433,6 +437,12 @@ class Build_Panel(bpy.types.Panel):
 def get_selected_blocks(context: bpy.types.Context) -> "set[Any]":
 	"""Gets selected asset data blocks in the outliner"""
 	blocks = set()
+	# Include data blocks selected in scene
+	for block in context.selected_objects:
+		if block.get("sg_asset"):
+			blocks.add(block)
+
+	# Include data blocks selected in outliner
 	for area in context.screen.areas:
 		if area.type != "OUTLINER":
 			continue
@@ -490,26 +500,26 @@ class Inspect_Panel(bpy.types.Panel):
 @persistent
 def load_handler(dummy):
 	# Auto-update if required
-	props = bpy.context.scene.sg_props
-	if not props.auto_update:
+	prefs = bpy.context.preferences
+	if not prefs.addons[__name__].preferences.auto_update:
 		return
 
+	props = bpy.context.scene.sg_props
 	settings = get_transfer_settings(props)
 	updates = get_updates()
 	for asset in updates:
-		try:
-			layers = updates[asset]
-			
-			# Avoid rebuilding material data in other layers
-			replacing_mats = LayerMaterials.folder in layers
-			settings.replacing_materials = replacing_mats
-			
-			builder = AssetBuilder(asset)
-			for layer in layers:
-				layer_obj = layer_lookup[layer]
+		layers = updates[asset]
+		# Avoid rebuilding material data in other layers
+		replacing_mats = LayerMaterials.folder in layers
+		settings.replacing_materials = replacing_mats
+
+		builder = AssetBuilder(asset)
+		for layer in layers:
+			layer_obj = layer_lookup[layer]
+			try:
 				builder.process(layer_obj, settings, -1)
-		except Exception:
-			pass
+			except Exception as err:
+				print(err)
 
 # Dump all classes to register in here
 classes = [

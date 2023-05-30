@@ -145,14 +145,11 @@ if __name__ == "__main__":
 	settings.replacing_materials = True
 
 	builder = AssetBuilder(args.asset)
-	builder.process(LayerModelling, settings)
-	builder.process(LayerRigging, settings)
-	builder.process(LayerGrooming, settings)
-	builder.process(LayerMaterials, settings)
-	
-	# When all layers are finished, this would be nice:
-	# for layer in listed_layers:
-		# builder.process(layer)
+	for layer in listed_layers:
+		try:
+			builder.process(layer, settings, -1)
+		except Exception as err:
+			print(err)
 
 	builder.mark_asset()
 	builder.save(write_catalog=True)
