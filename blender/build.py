@@ -107,6 +107,7 @@ class AssetBuilder:
 		# Structure is "master/build/asset/asset_v001.blend" for now
 		asset_folder = os.path.join(SG_BLEND_DB, "build", self.asset)
 		if not os.path.exists(asset_folder):
+			os.umask(0)
 			os.makedirs(asset_folder)
 
 		# Increase version based on file count in subfolder

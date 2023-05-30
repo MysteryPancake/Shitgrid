@@ -117,6 +117,7 @@ class Publish_Operator(bpy.types.Operator):
 		wip_folder = os.path.join(SG_BLEND_DB, "wip", props.publish_asset)
 		if not os.path.exists(wip_folder):
 			if context.preferences.addons[__name__].preferences.make_folder:
+				os.umask(0)
 				os.makedirs(wip_folder)
 			else:
 				self.report({"ERROR"}, f"Asset folder '{props.publish_asset}' doesn't exist yet!")
@@ -125,6 +126,7 @@ class Publish_Operator(bpy.types.Operator):
 		# Structure is "master/wip/asset/layer/asset_layer_v001.blend" for now
 		layer_folder = os.path.join(wip_folder, props.publish_layer)
 		if not os.path.exists(layer_folder):
+			os.umask(0)
 			os.mkdir(layer_folder)
 
 		# Up version number based on file index in subfolder
