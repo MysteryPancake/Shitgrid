@@ -1,7 +1,6 @@
 import bpy, os, argparse, getpass
 from uuid import uuid4
 
-from .env_vars import *
 from .transfer_map import *
 from .layers import *
 from .utils import *
@@ -16,7 +15,8 @@ class AssetBuilder:
 		"""Returns a list of all files for a layer"""
 
 		# Structure is "master/wip/asset/layer/asset_layer_v001.blend" for now
-		wip_folder = os.path.join(SG_BLEND_DB, "wip", self.asset, layer)
+		prefs = bpy.context.preferences.addons[__name__].preferences
+		wip_folder = os.path.join(prefs.database, "wip", self.asset, layer)
 		if not os.path.exists(wip_folder):
 			raise NotADirectoryError(f"Missing {layer} folder: {wip_folder}")
 		
@@ -88,7 +88,8 @@ class AssetBuilder:
 	def __update_catalog(self, version: int) -> None:
 		"""Manually updates Blender's Asset Library catalog file"""
 
-		catalog_path = os.path.join(SG_BLEND_DB, "build", "blender_assets.cats.txt")
+		prefs = bpy.context.preferences.addons[__name__].preferences
+		catalog_path = os.path.join(prefs.database, "build", "blender_assets.cats.txt")
 		catalog_exists = os.path.isfile(catalog_path)
 
 		with open(catalog_path, "a") as catalog:
@@ -105,7 +106,8 @@ class AssetBuilder:
 		`write_catalog` optionally lists this file in the Asset Library.
 		"""
 		# Structure is "master/build/asset/asset_v001.blend" for now
-		asset_folder = os.path.join(SG_BLEND_DB, "build", self.asset)
+		prefs = bpy.context.preferences.addons[__name__].preferences
+		asset_folder = os.path.join(prefs.database, "build", self.asset)
 		if not os.path.exists(asset_folder):
 			os.umask(0)
 			os.makedirs(asset_folder)
