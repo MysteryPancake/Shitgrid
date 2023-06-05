@@ -1,6 +1,40 @@
 # Shitgrid
 
-Definitely not Kitsu...
+Unfinished ripoff of Kitsu 😃
+
+This pipeline was an experiment to see how much of a pipeline I could get done in 2 weeks.
+
+I wanted this pipeline to be fully original, so I tried to avoid ideas from existing pipelines.
+
+Eventually I realised I was reinventing the wheel after looking at Kitsu's codebase, which uses the same idea of transferring data between objects.
+
+## Features
+
+### Publishing
+
+When publishing an asset, it works like a namespace. All data blocks relevant to the chosen publish layer get tagged with custom data.
+
+Custom data is used to create an imaginary link, associating data blocks to an asset name, ID, layer and version.
+
+Conceptually this means any data can be published, even if it can't be represented as an object (such as text, brushes, palettes, etc)
+
+Any data blocks which are already tagged won't get retagged. This is because a single Blender can contain multiple assets (for example when scene building), and publishing should only affect the relevant asset name.
+
+If a data block is already tagged and belongs to the publish name and layer, its version in the custom data will be incremented.
+
+### Updating
+
+When updating, it searches through all data blocks and checks the version in their custom data. Any outdated data blocks will be rebuilt according to their layer.
+
+### Fetching
+
+Fetching is meant to append a prebuilt asset created by `build.bat`.
+
+For the public release it checks whether build exist, and otherwise manually builds all layers for an asset.
+
+### Building
+
+Building is a developer feature intended to manually build specific layers with specific versions. It turned out to be the most useful feature in practice.
 
 ## Components
 
