@@ -1,7 +1,5 @@
 # Shitgrid
 
-Unfinished ripoff of Kitsu 😃
-
 This pipeline was an experiment to see how much of a pipeline I could get done in 2 weeks.
 
 I wanted this pipeline to be fully original, so I tried to avoid ideas from existing pipelines.
