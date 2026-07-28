@@ -25,6 +25,8 @@ Any data blocks which are already tagged won't get retagged. This is because a s
 
 If a data block is already tagged and belongs to the publish name and layer, its version in the custom data will be incremented.
 
+<img src="./images/assets.png">
+
 ### Updating
 
 When updating, it searches through all data blocks and checks the version in their custom data. Any outdated data blocks will be rebuilt according to their layer.
