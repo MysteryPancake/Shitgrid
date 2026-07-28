@@ -31,6 +31,10 @@ If a data block is already tagged and belongs to the publish name and layer, its
 
 When updating, it searches through all data blocks and checks the version in their custom data. Any outdated data blocks will be rebuilt according to their layer.
 
+<img src="./images/updating.png">
+
+<img src="./images/updated.png">
+
 ### Fetching
 
 Fetching is meant to append a prebuilt asset created by `build.bat`.
