@@ -21,11 +21,11 @@ Custom data is used to create an imaginary link, associating data blocks to an a
 
 Conceptually this means any data can be published, even if it can't be represented as an object (such as text, brushes, palettes, etc)
 
+<img src="./images/assets.png">
+
 Any data blocks which are already tagged won't get retagged. This is because a single Blender can contain multiple assets (for example when scene building), and publishing should only affect the relevant asset name.
 
 If a data block is already tagged and belongs to the publish name and layer, its version in the custom data will be incremented.
-
-<img src="./images/assets.png">
 
 ### Updating
 
@@ -48,6 +48,8 @@ Building is a developer feature intended to manually build specific layers with 
 The website is designed to imitate Shotgrid, with basic abilities to create and view tasks and assets.
 
 When an asset is added via the frontend, the backend creates a folder on disk within the `wip` folder.
+
+<img src="./images/wipfolder.png">
 
 The folders are used by the Blender addon as described below.
 
