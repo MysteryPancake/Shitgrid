@@ -13,6 +13,8 @@ Eventually I realised I was reinventing the wheel after looking at Kitsu's codeb
 
 ## Features
 
+<img src="./images/features.png">
+
 ### Publishing
 
 When publishing an asset, it works like a namespace. All data blocks relevant to the chosen publish layer get tagged with custom data.
