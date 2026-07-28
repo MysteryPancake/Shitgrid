@@ -47,6 +47,8 @@ Building is a developer feature intended to manually build specific layers with 
 
 The website is designed to imitate Shotgrid, with basic abilities to create and view tasks and assets.
 
+<img src="./images/dashboard.png">
+
 When an asset is added via the frontend, the backend creates a folder on disk within the `wip` folder.
 
 <img src="./images/wipfolder.png">
