@@ -1,6 +1,9 @@
 # Shitgrid
 
-[![Heightfield tutorial](https://img.youtube.com/vi/tNqqY4XsTL0/mqdefault.jpg)](https://youtu.be/tNqqY4XsTL0)
+[![Shitgrid demo](https://img.youtube.com/vi/tNqqY4XsTL0/maxresdefault.jpg)](https://youtu.be/tNqqY4XsTL0)
+
+| [Demo Video](https://youtu.be/tNqqY4XsTL0) |
+| --- |
 
 This pipeline was an experiment to see how much of a pipeline I could get done in 2 weeks.
 
