@@ -47,6 +47,12 @@ For the public release it checks whether build exist, and otherwise manually bui
 
 Building is a developer feature intended to manually build specific layers with specific versions. It turned out to be the most useful feature in practice.
 
+<img src="./images/layers.png">
+
+<img src="./images/layers2.png">
+
+<img src="./images/built.png">
+
 ## Components
 
 ### Website
